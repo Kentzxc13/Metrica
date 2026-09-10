@@ -1,0 +1,169 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  
+  --color-zinc-50: #FAFAFA;
+  --color-zinc-100: #F4F4F5;
+  --color-zinc-200: #E4E4E7;
+  --color-zinc-500: #71717A;
+  --color-zinc-950: #09090B;
+  
+  --color-emerald-600: #059669;
+  --color-emerald-50: #ECFDF5;
+  
+  --color-rose-600: #E11D48;
+  --color-rose-50: #FFF1F2;
+  
+  --color-dashboard-bg: #f3f4f7;
+  --color-dashboard-card: #ffffff;
+  --color-dashboard-sidebar: #fbfcfd;
+  --color-dashboard-border: #eaecef;
+  --color-dashboard-textPrimary: #111827;
+  --color-dashboard-textSecondary: #6b7280;
+  --color-dashboard-textMuted: #9ca3af;
+  --color-dashboard-accent: #18181b;
+  --color-dashboard-accentHover: #27272a;
+
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-floating: 0 12px 24px -6px rgba(0, 0, 0, 0.08), 0 4px 12px -4px rgba(0, 0, 0, 0.03);
+}
+
+html {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.16) transparent;
+}
+
+body {
+  background: var(--color-zinc-50);
+  color: var(--color-zinc-950);
+}
+
+/* Scope Modern Minimalist Slim Scrollbar ONLY to the main browser window */
+html::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+html::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.14);
+  border-radius: 9999px;
+}
+
+html::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.28);
+}
+
+/* Modern Minimalist Slim Scrollbar for Internal Containers */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
+}
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.32);
+}
+
+/* Bulletproof Invisible Scrollbar Utility (For Sidebar & Panels) */
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+/* Base resets & typography */
+h1, h2, h3, h4, h5, h6 {
+  letter-spacing: -0.025em;
+}
+
+/* Utility classes for design tokens */
+@layer utilities {
+  .metric-display {
+    font-size: 26px;
+    font-weight: 600;
+    line-height: 32px;
+    letter-spacing: -0.03em;
+  }
+  
+  .metric-tabular {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 18px;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+  }
+  
+  .label-caps {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 14px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  
+  .badge-sm {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 14px;
+  }
+  
+  .card-shadow {
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04), 0 4px 12px 0 rgba(0, 0, 0, 0.03);
+  }
+}
+
+
+        .matrix-grid {
+            display: grid;
+            grid-template-rows: repeat(12, 1fr);
+            gap: 3px;
+        }
+
+        .matrix-cell {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+            transition: background-color 0.15s ease;
+        }
+
+        .matrix-cell-empty {
+            background-color: #f1f3f5;
+        }
+
+        .matrix-cell-new {
+            background-color: #d1d5db;
+        }
+
+        .matrix-cell-active {
+            background-color: #18181b;
+        }
+
+        .matrix-cell-active:hover {
+            background-color: #000000;
+            transform: scale(1.1);
+        }
+    
