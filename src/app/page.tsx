@@ -465,8 +465,8 @@ export default function DashboardOverviewPage() {
                             </div>
                             <div className="flex items-center gap-1.5">
                                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                    currentCompany.aiTier === 'Prime' ? 'bg-emerald-100 text-emerald-800' :
-                                    currentCompany.aiTier === 'Good' ? 'bg-blue-100 text-blue-800' :
+                                    currentCompany.aiTier === 'Outperforming' ? 'bg-emerald-100 text-emerald-800' :
+                                    currentCompany.aiTier === 'Moderate' ? 'bg-blue-100 text-blue-800' :
                                     'bg-rose-100 text-rose-800'
                                 }`}>
                                     {currentCompany.aiTier}

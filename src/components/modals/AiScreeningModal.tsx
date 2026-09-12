@@ -36,8 +36,8 @@ export function AiScreeningModal({ isOpen, onClose, company }: AiScreeningModalP
                         <div className="text-right">
                             <span className="text-xs text-gray-400 uppercase tracking-wider block font-semibold">AI Risk Tier</span>
                             <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                                company.aiTier === 'Prime' ? 'bg-emerald-100 text-emerald-800' :
-                                company.aiTier === 'Good' ? 'bg-blue-100 text-blue-800' :
+                                company.aiTier === 'Outperforming' ? 'bg-emerald-100 text-emerald-800' :
+                                company.aiTier === 'Moderate' ? 'bg-blue-100 text-blue-800' :
                                 'bg-rose-100 text-rose-800'
                             }`}>
                                 {company.aiTier} ({company.aiScore}/100)

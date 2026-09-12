@@ -13,7 +13,7 @@ export interface Company {
     conversionGrowth: string;
     categoryRevenue: string;
     categoryPeriod: string;
-    aiTier: 'Prime' | 'Good' | 'Risky';
+    aiTier: 'Outperforming' | 'Moderate' | 'At Risk';
     aiScore: number;
     aiRationale: string;
     highChurnWarning?: boolean;
