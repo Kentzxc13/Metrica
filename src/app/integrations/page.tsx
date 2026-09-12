@@ -7,7 +7,21 @@ import { DataPipeline } from '@/types/pipeline';
 
 export default function IntegrationsPage() {
     const { globalSearchQuery, showActionToast } = useDashboard();
-    const [pipelines, setPipelines] = useState<DataPipeline[]>(INITIAL_DATA_PIPELINES);
+    // Maintain each pipeline with an internal seconds elapsed counter
+    const [pipelines, setPipelines] = useState<(DataPipeline & { secondsElapsed: number })[]>(() =>
+        INITIAL_DATA_PIPELINES.map(p => {
+            let initialSec = 2;
+            if (p.lastPayloadSynced.includes('s ago')) {
+                initialSec = parseInt(p.lastPayloadSynced) || 2;
+            } else if (p.lastPayloadSynced.includes('m ago')) {
+                initialSec = (parseInt(p.lastPayloadSynced) || 14) * 60;
+            }
+            return {
+                ...p,
+                secondsElapsed: initialSec,
+            };
+        })
+    );
     const [filterProtocol, setFilterProtocol] = useState<string>('All');
     const [pingingId, setPingingId] = useState<string | null>(null);
     const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
@@ -27,6 +41,41 @@ export default function IntegrationsPage() {
         };
     }, [activeMenuId]);
 
+    // ✨ 1-Second Real-Time Telemetry & Seconds Ticker (Continuous counter)
+    useEffect(() => {
+        const ticker = setInterval(() => {
+            setPipelines(prev => prev.map(pipe => {
+                // If actively pinging/syncing this pipe, don't tick
+                if (pipe.status === 'Syncing') return pipe;
+
+                // Natural continuous time counter: 3s ago, 4s ago, 5s ago...
+                const nextSec = pipe.secondsElapsed + 1;
+
+                // Format live string: 1s ago, 2s ago, 1m ago...
+                let formattedTime = `${nextSec}s ago`;
+                if (nextSec >= 60) {
+                    formattedTime = `${Math.floor(nextSec / 60)}m ago`;
+                }
+
+                // Subtle organic network latency jitter every 3 seconds: -2ms to +3ms
+                let currentMs = parseInt(pipe.latency) || 32;
+                if (nextSec % 3 === 0) {
+                    const delta = Math.floor(Math.random() * 5) - 2;
+                    currentMs = Math.max(18, Math.min(65, currentMs + delta));
+                }
+
+                return {
+                    ...pipe,
+                    secondsElapsed: nextSec,
+                    latency: `${currentMs}ms`,
+                    lastPayloadSynced: formattedTime,
+                };
+            }));
+        }, 1000);
+
+        return () => clearInterval(ticker);
+    }, []);
+
     const filteredPipelines = pipelines.filter(pipe => {
         const matchesSearch =
             pipe.name.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
@@ -45,14 +94,43 @@ export default function IntegrationsPage() {
     });
 
     const handleTriggerRefresh = () => {
+        // Set all to Syncing
+        setPipelines(prev => prev.map(p => ({ ...p, status: 'Syncing' })));
         showActionToast('Re-verifying all 5 cryptographic pipeline telemetry streams...');
+
+        setTimeout(() => {
+            setPipelines(prev => prev.map(p => {
+                const refreshedMs = Math.floor(Math.random() * 20 + 20) + 'ms';
+                return {
+                    ...p,
+                    latency: refreshedMs,
+                    status: 'Healthy',
+                    secondsElapsed: 0,
+                    lastPayloadSynced: 'Just now'
+                };
+            }));
+            showActionToast('All 5 pipelines verified & synchronized (P99 Healthy)');
+        }, 750);
     };
 
     const handleTestPing = (pipe: DataPipeline) => {
         setPingingId(pipe.id);
+        // Set this specific pipe to Syncing
+        setPipelines(prev => prev.map(p => p.id === pipe.id ? { ...p, status: 'Syncing' } : p));
+
         setTimeout(() => {
+            const liveMs = Math.floor(Math.random() * 18 + 19) + 'ms';
+            setPipelines(prev => prev.map(p =>
+                p.id === pipe.id ? {
+                    ...p,
+                    latency: liveMs,
+                    status: 'Healthy',
+                    secondsElapsed: 0,
+                    lastPayloadSynced: 'Just now'
+                } : p
+            ));
             setPingingId(null);
-            showActionToast(`ACK received from ${pipe.endpoint} in ${pipe.latency} (HTTP 200 OK)`);
+            showActionToast(`ACK received from ${pipe.endpoint} in ${liveMs} (HTTP 200 OK)`);
         }, 600);
     };
 
@@ -184,7 +262,13 @@ export default function IntegrationsPage() {
                                     {/* Column 5: Status & Sync - Dot and bubble removed */}
                                     <td className="py-3 px-4">
                                         <div className="space-y-0.5">
-                                            <div className="text-xs font-semibold text-emerald-600">
+                                            <div className={`text-xs font-semibold flex items-center gap-1.5 ${
+                                                pipe.status === 'Syncing' ? 'text-sky-600 animate-pulse' :
+                                                pipe.status === 'Degraded' ? 'text-amber-600' : 'text-emerald-600'
+                                            }`}>
+                                                {pipe.status === 'Syncing' && (
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-ping"></span>
+                                                )}
                                                 {pipe.status}
                                             </div>
                                             <div className="text-[10px] text-gray-400">Synced {pipe.lastPayloadSynced}</div>
