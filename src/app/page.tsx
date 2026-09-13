@@ -577,10 +577,10 @@ export default function DashboardOverviewPage() {
                 </div>
 
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs border-collapse">
+                    <table className="w-full text-left text-xs border-collapse table-fixed">
                         <thead>
                             <tr className="border-b border-gray-100 text-gray-400 font-semibold uppercase text-[11px]">
-                                <th className="py-3 px-2 w-8">
+                                <th className="py-3 px-2 w-[4%] text-center">
                                     <input
                                         checked={selectedRows.length === filteredTransactions.length && filteredTransactions.length > 0}
                                         onChange={handleSelectAll}
@@ -588,19 +588,19 @@ export default function DashboardOverviewPage() {
                                         type="checkbox"
                                     />
                                 </th>
-                                <th className="py-3 px-3">Timestamp (UTC)</th>
-                                <th className="py-3 px-3">Event Code</th>
-                                <th className="py-3 px-3">Customer</th>
-                                <th className="py-3 px-3">Product / Plan</th>
-                                <th className="py-3 px-3">Status</th>
-                                <th className="py-3 px-3 text-right">Total Amount</th>
-                                <th className="py-3 px-3 text-center">Actions</th>
+                                <th className="py-3 px-3 w-[17%]">Timestamp (UTC)</th>
+                                <th className="py-3 px-3 w-[13%]">Event Code</th>
+                                <th className="py-3 px-3 w-[18%]">Customer</th>
+                                <th className="py-3 px-3 w-[23%]">Product / Plan</th>
+                                <th className="py-3 px-3 w-[12%] text-center">Status</th>
+                                <th className="py-3 px-3 w-[13%] text-right">Total Amount</th>
+                                <th className="py-3 px-2 w-[5%] text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
                             {filteredTransactions.map((tx) => (
                                 <tr key={tx.id} className="hover:bg-gray-50/70 transition-colors">
-                                    <td className="py-3.5 px-2">
+                                    <td className="py-3.5 px-2 text-center">
                                         <input
                                             checked={selectedRows.includes(tx.id)}
                                             onChange={() => handleToggleRow(tx.id)}
@@ -614,8 +614,8 @@ export default function DashboardOverviewPage() {
                                     </td>
                                     <td className="py-3.5 px-3 font-mono font-semibold text-gray-900">{tx.code}</td>
                                     <td className="py-3.5 px-3 font-semibold text-gray-900">{tx.customer}</td>
-                                    <td className="py-3.5 px-3 text-gray-600">{tx.product}</td>
-                                    <td className="py-3.5 px-3">
+                                    <td className="py-3.5 px-3 text-gray-600 truncate">{tx.product}</td>
+                                    <td className="py-3.5 px-3 text-center">
                                         <span
                                             className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium ${
                                                 tx.status === 'Success'
@@ -636,7 +636,7 @@ export default function DashboardOverviewPage() {
                                         </span>
                                     </td>
                                     <td className="py-3.5 px-3 text-right font-mono font-bold text-gray-900">{tx.totalRevenue}</td>
-                                    <td className="py-3.5 px-3 text-center">
+                                    <td className="py-3.5 px-2 text-center">
                                         <button className="text-gray-300 hover:text-gray-600">
                                             <svg className="w-4 h-4 inline" fill="currentColor" viewBox="0 0 20 20">
                                                 <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z"></path>
