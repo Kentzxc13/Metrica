@@ -53,15 +53,20 @@ export function AddPaymentModal({
                 return;
             }
 
+            const now = new Date();
+            const timeStr = `${now.getUTCHours().toString().padStart(2, '0')}:${now.getUTCMinutes().toString().padStart(2, '0')}:${now.getUTCSeconds().toString().padStart(2, '0')} UTC`;
+
             const newTx: Transaction = {
                 id: result.payment.id,
-                code: `#${result.payment.payment_id}`,
+                code: result.payment.payment_id.startsWith('#')
+                    ? result.payment.payment_id
+                    : `#${result.payment.payment_id}`,
                 customer: result.payment.customer ?? newCustomer,
                 product: result.payment.product ?? newProduct,
                 status: 'Success',
-                qty: 1,
-                unitPrice: `$${Number(result.payment.amount).toLocaleString()}`,
                 totalRevenue: `$${Number(result.payment.amount).toLocaleString()}`,
+                timestamp: timeStr,
+                relativeTime: 'Just now',
             };
 
             onAddTransaction(newTx);

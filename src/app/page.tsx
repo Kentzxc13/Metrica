@@ -541,11 +541,11 @@ export default function DashboardOverviewPage() {
             </section>
             {/* END: PrimaryChartsSection */}
 
-            {/* BEGIN: RecentTransactionsSection */}
-            <section className="bg-white rounded-2xl p-5 border border-gray-200/80 shadow-card" data-purpose="recent-transactions-ledger">
+            {/* BEGIN: RecentEventsSection */}
+            <section className="bg-white rounded-2xl p-5 border border-gray-200/80 shadow-card" data-purpose="recent-events-ledger">
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                     <div className="flex items-center gap-2">
-                        <h2 className="text-xs uppercase font-bold tracking-wider text-gray-500">Recent Transactions</h2>
+                        <h2 className="text-xs uppercase font-bold tracking-wider text-gray-500">Recent Events</h2>
                         <span className="text-xs text-gray-400 font-normal">
                             ({filteredTransactions.length} records)
                         </span>
@@ -556,7 +556,7 @@ export default function DashboardOverviewPage() {
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="w-full pl-8 pr-3 py-1 bg-[#fcfcfd] border border-gray-200 rounded-xl text-xs text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-black"
-                                placeholder="Search transactions..."
+                                placeholder="Search events..."
                                 type="text"
                             />
                             <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
@@ -571,7 +571,7 @@ export default function DashboardOverviewPage() {
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path d="M12 4v16m8-8H4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
                             </svg>
-                            <span>Add Transaction</span>
+                            <span>Add Event</span>
                         </button>
                     </div>
                 </div>
@@ -588,13 +588,12 @@ export default function DashboardOverviewPage() {
                                         type="checkbox"
                                     />
                                 </th>
-                                <th className="py-3 px-3">Transaction ID</th>
+                                <th className="py-3 px-3">Timestamp (UTC)</th>
+                                <th className="py-3 px-3">Event Code</th>
                                 <th className="py-3 px-3">Customer</th>
                                 <th className="py-3 px-3">Product / Plan</th>
                                 <th className="py-3 px-3">Status</th>
-                                <th className="py-3 px-3 text-center">Qty</th>
-                                <th className="py-3 px-3 text-right">Unit Price</th>
-                                <th className="py-3 px-3 text-right">Total Revenue</th>
+                                <th className="py-3 px-3 text-right">Total Amount</th>
                                 <th className="py-3 px-3 text-center">Actions</th>
                             </tr>
                         </thead>
@@ -609,7 +608,11 @@ export default function DashboardOverviewPage() {
                                             type="checkbox"
                                         />
                                     </td>
-                                    <td className="py-3.5 px-3 font-mono text-gray-400">{tx.code}</td>
+                                    <td className="py-3.5 px-3">
+                                        <div className="font-mono text-xs font-bold text-gray-900">{tx.timestamp ?? '14:32:05 UTC'}</div>
+                                        <span className="text-[10px] text-gray-400">{tx.relativeTime ?? '2m ago'}</span>
+                                    </td>
+                                    <td className="py-3.5 px-3 font-mono font-semibold text-gray-900">{tx.code}</td>
                                     <td className="py-3.5 px-3 font-semibold text-gray-900">{tx.customer}</td>
                                     <td className="py-3.5 px-3 text-gray-600">{tx.product}</td>
                                     <td className="py-3.5 px-3">
@@ -632,8 +635,6 @@ export default function DashboardOverviewPage() {
                                             {tx.status}
                                         </span>
                                     </td>
-                                    <td className="py-3.5 px-3 text-center font-mono text-gray-600">{tx.qty}</td>
-                                    <td className="py-3.5 px-3 text-right font-mono text-gray-900">{tx.unitPrice}</td>
                                     <td className="py-3.5 px-3 text-right font-mono font-bold text-gray-900">{tx.totalRevenue}</td>
                                     <td className="py-3.5 px-3 text-center">
                                         <button className="text-gray-300 hover:text-gray-600">
@@ -648,7 +649,7 @@ export default function DashboardOverviewPage() {
                     </table>
                 </div>
             </section>
-            {/* END: RecentTransactionsSection */}
+            {/* END: RecentEventsSection */}
 
             {/* AI Screening Modal */}
             <AiScreeningModal

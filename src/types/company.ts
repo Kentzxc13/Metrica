@@ -50,7 +50,9 @@ export interface Transaction {
     customer: string;
     product: string;
     status: 'Success' | 'Pending' | 'Refunded';
-    qty: number;
-    unitPrice: string;
+    qty?: number;
+    unitPrice?: string;
     totalRevenue: string;
+    timestamp?: string;
+    relativeTime?: string;
 }
