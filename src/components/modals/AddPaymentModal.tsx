@@ -39,7 +39,7 @@ export function AddPaymentModal({
                     payment_id: paymentId,
                     company_id: companyId,
                     amount: Number(newAmount),
-                    currency: 'PHP',
+                    currency: 'USD',
                     payment_timestamp: new Date().toISOString(),
                     customer: newCustomer,
                     product: newProduct || 'Standard SaaS License',
@@ -60,8 +60,8 @@ export function AddPaymentModal({
                 product: result.payment.product ?? newProduct,
                 status: 'Success',
                 qty: 1,
-                unitPrice: `₱${Number(result.payment.amount).toLocaleString()}`,
-                totalRevenue: `₱${Number(result.payment.amount).toLocaleString()}`,
+                unitPrice: `$${Number(result.payment.amount).toLocaleString()}`,
+                totalRevenue: `$${Number(result.payment.amount).toLocaleString()}`,
             };
 
             onAddTransaction(newTx);
