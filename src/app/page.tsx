@@ -659,10 +659,11 @@ export default function DashboardOverviewPage() {
 
             {/* Add Payment Modal */}
             <AddPaymentModal
-                isOpen={isPaymentModalOpen}
-                onClose={() => setIsPaymentModalOpen(false)}
-                onAddTransaction={handleAddTransaction}
-            />
+    isOpen={isPaymentModalOpen}
+    onClose={() => setIsPaymentModalOpen(false)}
+    onAddTransaction={handleAddTransaction}
+    companyId={currentCompany.id}
+/>
         </>
     );
 }
