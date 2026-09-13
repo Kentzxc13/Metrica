@@ -588,13 +588,13 @@ export default function DashboardOverviewPage() {
                                         type="checkbox"
                                     />
                                 </th>
-                                <th className="py-3 px-3 w-[15%]">Timestamp (UTC)</th>
+                                <th className="py-3 px-3 w-[16%]">Timestamp (UTC)</th>
                                 <th className="py-3 px-3 w-[12%]">Event Code</th>
-                                <th className="py-3 px-3 w-[16%]">Customer</th>
-                                <th className="py-3 px-3 w-[24%]">Product / Plan</th>
-                                <th className="py-3 px-3 w-[12%] text-right pr-4">Status</th>
-                                <th className="py-3 px-3 w-[10%] text-right">Amount</th>
-                                <th className="py-3 px-3 w-[7%] text-center">Actions</th>
+                                <th className="py-3 px-3 w-[17%]">Customer</th>
+                                <th className="py-3 px-3 w-[21%]">Product / Plan</th>
+                                <th className="py-3 px-3 w-[13%] text-left">Status</th>
+                                <th className="py-3 px-3 w-[11%] text-left">Revenue</th>
+                                <th className="py-3 px-3 w-[6%] text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
@@ -615,7 +615,7 @@ export default function DashboardOverviewPage() {
                                     <td className="py-3.5 px-3 font-mono font-semibold text-gray-900">{tx.code}</td>
                                     <td className="py-3.5 px-3 font-semibold text-gray-900">{tx.customer}</td>
                                     <td className="py-3.5 px-3 text-gray-600 truncate">{tx.product}</td>
-                                    <td className="py-3.5 px-3 text-right pr-4">
+                                    <td className="py-3.5 px-3 text-left">
                                         <span
                                             className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium ${
                                                 tx.status === 'Success'
@@ -635,7 +635,7 @@ export default function DashboardOverviewPage() {
                                             {tx.status}
                                         </span>
                                     </td>
-                                    <td className="py-3.5 px-3 text-right font-mono font-bold text-gray-900">{tx.totalRevenue}</td>
+                                    <td className="py-3.5 px-3 text-left font-mono font-bold text-gray-900">{tx.totalRevenue}</td>
                                     <td className="py-3.5 px-3 text-center">
                                         <button className="text-gray-300 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition-colors">
                                             <svg className="w-4 h-4 inline" fill="currentColor" viewBox="0 0 20 20">
