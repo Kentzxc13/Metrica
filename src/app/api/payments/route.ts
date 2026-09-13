@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
             const requestedKey = normalizeCompanyKey(body.company_id);
 
             const matchedCompany = companies?.find(
-                (company) =>
+                (company: { id: string; name: string }) =>
                     normalizeCompanyKey(company.name) === requestedKey
             );
 
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
                 payment_id: body.payment_id,
                 company_id: companyUuid,
                 amount: body.amount,
-                currency: body.currency ?? 'PHP',
+                currency: body.currency ?? 'USD',
                 payment_timestamp: body.payment_timestamp,
                 status: body.status ?? 'PROCESSED',
                 customer: body.customer ?? null,
