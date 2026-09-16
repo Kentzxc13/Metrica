@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createHash } from 'crypto';
 import { supabase } from '@/lib/supabase';
 
 interface PaymentRequest {
@@ -24,6 +25,24 @@ function normalizeCompanyKey(value: string): string {
         .toLowerCase()
         .replace(/[^a-z0-9]/g, '')
         .replace(/(inc|platform|gateway|saas|tool)$/g, '');
+}
+
+function createVerificationHash(data: {
+    payment_id: string;
+    company_id: string;
+    amount: number;
+    currency: string;
+    payment_timestamp: string;
+}) {
+    const payload = [
+        data.payment_id,
+        data.company_id,
+        data.amount,
+        data.currency,
+        data.payment_timestamp,
+    ].join('|');
+
+    return createHash('sha256').update(payload).digest('hex');
 }
 
 export async function GET(request: NextRequest) {
@@ -203,6 +222,7 @@ export async function POST(request: NextRequest) {
         }
 
         const paymentStatus = (body.status ?? 'PROCESSED').toUpperCase();
+        const currency = body.currency ?? 'USD';
 
         // -----------------------------
         // 2. Resolve company ID
@@ -246,6 +266,20 @@ export async function POST(request: NextRequest) {
             companyUuid = matchedCompany.id;
         }
 
+        const resolvedCompanyId = companyUuid;
+
+        // -----------------------------
+        // 2b. Generate SHA-256 verification hash
+        // -----------------------------
+
+        const verificationHash = createVerificationHash({
+            payment_id: body.payment_id,
+            company_id: resolvedCompanyId,
+            amount: body.amount,
+            currency,
+            payment_timestamp: body.payment_timestamp,
+        });
+
         // -----------------------------
         // 3. Insert payment
         // -----------------------------
@@ -254,17 +288,18 @@ export async function POST(request: NextRequest) {
             .from('payments')
             .insert({
                 payment_id: body.payment_id,
-                company_id: companyUuid,
+                company_id: resolvedCompanyId,
                 amount: body.amount,
-                currency: body.currency ?? 'USD',
+                currency,
                 payment_timestamp: body.payment_timestamp,
                 status: paymentStatus,
                 customer: body.customer ?? null,
                 product: body.product ?? null,
                 raw_payload: body.raw_payload ?? null,
+                verification_hash: verificationHash,
             })
             .select(
-                'id, payment_id, company_id, amount, currency, payment_timestamp, received_at, status, customer, product'
+                'id, payment_id, company_id, amount, currency, payment_timestamp, received_at, status, customer, product, verification_hash'
             )
             .single();
 
@@ -321,7 +356,7 @@ export async function POST(request: NextRequest) {
                 await supabase
                     .from('payments')
                     .select('amount, customer')
-                    .eq('company_id', companyUuid)
+                    .eq('company_id', resolvedCompanyId)
                     .eq('status', 'PROCESSED')
                     .gte('payment_timestamp', startOfDay)
                     .lt('payment_timestamp', startOfNextDay);
@@ -366,7 +401,7 @@ export async function POST(request: NextRequest) {
                     .select(
                         'id, company_id, metric_date, revenue, payment_count, customer_count, churn_count, status'
                     )
-                    .eq('company_id', companyUuid)
+                    .eq('company_id', resolvedCompanyId)
                     .eq('metric_date', paymentDate)
                     .order('created_at', { ascending: false })
                     .limit(1)
@@ -408,7 +443,7 @@ export async function POST(request: NextRequest) {
                 const { error: rollupInsertError } = await supabase
                     .from('metric_rollups')
                     .insert({
-                        company_id: companyUuid,
+                        company_id: resolvedCompanyId,
                         metric_date: paymentDate,
                         revenue,
                         payment_count: paymentCount,
@@ -437,6 +472,7 @@ export async function POST(request: NextRequest) {
             {
                 success: true,
                 payment: data,
+                verification_hash: verificationHash,
             },
             { status: 201 }
         );
