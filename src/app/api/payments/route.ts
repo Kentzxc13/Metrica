@@ -26,6 +26,126 @@ function normalizeCompanyKey(value: string): string {
         .replace(/(inc|platform|gateway|saas|tool)$/g, '');
 }
 
+export async function GET(request: NextRequest) {
+    try {
+        const { searchParams } = new URL(request.url);
+        const companyId = searchParams.get('company_id');
+
+        if (!companyId) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: 'company_id is required',
+                },
+                { status: 400 }
+            );
+        }
+
+        let companyUuid = companyId;
+
+        if (!isUuid(companyId)) {
+            const { data: companies, error: companyLookupError } =
+                await supabase
+                    .from('companies')
+                    .select('id, name');
+
+            if (companyLookupError) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        error: companyLookupError.message,
+                    },
+                    { status: 500 }
+                );
+            }
+
+            const requestedKey = normalizeCompanyKey(companyId);
+
+            const matchedCompany = companies?.find(
+                (company: { id: string; name: string }) =>
+                    normalizeCompanyKey(company.name) === requestedKey
+            );
+
+            if (!matchedCompany) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        error: `Company not found: ${companyId}`,
+                    },
+                    { status: 404 }
+                );
+            }
+
+            companyUuid = matchedCompany.id;
+        }
+
+        const { data: company, error: companyError } = await supabase
+            .from('companies')
+            .select('id, name, type, initial')
+            .eq('id', companyUuid)
+            .maybeSingle();
+
+        if (companyError) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: companyError.message,
+                },
+                { status: 500 }
+            );
+        }
+
+        if (!company) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: `Company not found: ${companyId}`,
+                },
+                { status: 404 }
+            );
+        }
+
+        const { data: payments, error: paymentsError } = await supabase
+            .from('payments')
+            .select(
+                'id, payment_id, company_id, amount, currency, payment_timestamp, received_at, status, customer, product'
+            )
+            .eq('company_id', companyUuid)
+            .order('payment_timestamp', { ascending: false });
+
+        if (paymentsError) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: paymentsError.message,
+                },
+                { status: 500 }
+            );
+        }
+
+        return NextResponse.json(
+    {
+        success: true,
+        company,
+        events: (payments ?? []).map((payment) => ({
+            ...payment,
+            event_type: 'PAYMENT',
+        })),
+        count: payments?.length ?? 0,
+    },
+    { status: 200 }
+);
+    } catch {
+        return NextResponse.json(
+            {
+                success: false,
+                error: 'Unable to retrieve payment history',
+            },
+            { status: 500 }
+        );
+    }
+}
+
 export async function POST(request: NextRequest) {
     try {
         const body = (await request.json()) as PaymentRequest;
