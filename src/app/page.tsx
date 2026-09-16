@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useDashboard } from '@/context/DashboardContext';
-import { MONTHS_DATA, REVENUE_BREAKDOWN_BARS, INITIAL_TRANSACTIONS } from '@/data/companies';
+import { MONTHS_DATA, REVENUE_BREAKDOWN_BARS } from '@/data/companies';
 import { Transaction } from '@/types/company';
 import { AiScreeningModal } from '@/components/modals/AiScreeningModal';
 import { AddPaymentModal } from '@/components/modals/AddPaymentModal';
@@ -74,6 +74,57 @@ export default function DashboardOverviewPage() {
         loadDashboardData();
     }, [currentCompany.id]);
 
+    useEffect(() => {
+        const loadTransactions = async () => {
+            setIsTransactionsLoading(true);
+
+            try {
+                const response = await fetch(
+                    `/api/payments?company_id=${encodeURIComponent(currentCompany.id)}`
+                );
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.error || 'Failed to load transactions');
+                }
+
+                const liveTransactions: Transaction[] = (result.events ?? []).map(
+                    (payment: {
+                        id: string;
+                        payment_id: string;
+                        amount: number;
+                        status: string;
+                        customer: string | null;
+                        product: string | null;
+                    }) => ({
+                        id: payment.id,
+                        code: payment.payment_id,
+                        customer: payment.customer ?? 'Unknown Customer',
+                        product: payment.product ?? 'Payment',
+                        status:
+                            payment.status === 'PROCESSED'
+                                ? 'Success'
+                                : payment.status === 'FAILED'
+                                    ? 'Refunded'
+                                    : 'Pending',
+                        qty: 1,
+                        unitPrice: `$${Number(payment.amount).toLocaleString()}`,
+                        totalRevenue: `$${Number(payment.amount).toLocaleString()}`,
+                    })
+                );
+
+                setTransactions(liveTransactions);
+            } catch (error) {
+                console.error('Transaction history error:', error);
+            } finally {
+                setIsTransactionsLoading(false);
+            }
+        };
+
+        loadTransactions();
+    }, [currentCompany.id]);
+
     interface AiEvaluation {
         companyId: string;
         companyName: string;
@@ -123,7 +174,8 @@ export default function DashboardOverviewPage() {
     // Table search & selection
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [selectedRows, setSelectedRows] = useState<string[]>([]);
-    const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [isTransactionsLoading, setIsTransactionsLoading] = useState<boolean>(false);
 
     // Filter transactions based on in-table search
     const filteredTransactions = transactions.filter(t =>
