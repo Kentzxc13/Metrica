@@ -414,7 +414,14 @@ export default function DashboardOverviewPage() {
                         <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
                             <div className="flex items-center gap-4">
                                 <div className="text-xs text-gray-400">
-                                    Total Revenue: <span className="text-lg font-bold text-gray-900 ml-1 font-mono">{currentCompany.revenue}</span>
+                                    Total Revenue:{' '}
+                                    <span className="text-lg font-bold text-gray-900 ml-1 font-mono">
+                                        {isDashboardLoading
+                                            ? 'Loading...'
+                                            : dashboardData
+                                                ? `$${dashboardData.summary.revenue.toLocaleString()}`
+                                                : currentCompany.revenue}
+                                    </span>
                                 </div>
                                 <div className="flex items-center gap-3 text-xs text-gray-500 font-medium">
                                     <span className="inline-flex items-center gap-1.5">
