@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useDashboard } from '@/context/DashboardContext';
 import { MONTHS_DATA, REVENUE_BREAKDOWN_BARS, INITIAL_TRANSACTIONS } from '@/data/companies';
 import { Transaction } from '@/types/company';
@@ -25,6 +25,97 @@ export default function DashboardOverviewPage() {
 
     // AI Insight Panel / Modal
     const [isAiModalOpen, setIsAiModalOpen] = useState<boolean>(false);
+    const [dashboardData, setDashboardData] = useState<{
+        summary: {
+            revenue: number;
+            paymentCount: number;
+            customerCount: number;
+            churnCount: number;
+            revenueGrowth: number;
+            paymentGrowth: number;
+            customerGrowth: number;
+            churnGrowth: number;
+        };
+        history: {
+            metricDate: string;
+            revenue: number;
+            paymentCount: number;
+            customerCount: number;
+            churnCount: number;
+            status: string;
+        }[];
+    } | null>(null);
+
+    const [isDashboardLoading, setIsDashboardLoading] = useState<boolean>(false);
+
+    useEffect(() => {
+        const loadDashboardData = async () => {
+            setIsDashboardLoading(true);
+
+            try {
+                const response = await fetch(
+                    `/api/dashboard?company_id=${encodeURIComponent(currentCompany.id)}`
+                );
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.error || 'Failed to load dashboard data');
+                }
+
+                setDashboardData(result);
+            } catch (error) {
+                console.error('Dashboard data error:', error);
+            } finally {
+                setIsDashboardLoading(false);
+            }
+        };
+
+        loadDashboardData();
+    }, [currentCompany.id]);
+
+    interface AiEvaluation {
+        companyId: string;
+        companyName: string;
+        aiTier: 'Prime' | 'Good' | 'Risky';
+        aiScore: number;
+        aiRationale: string;
+        highChurnWarning: boolean;
+    }
+
+    const [aiEvaluation, setAiEvaluation] = useState<AiEvaluation | null>(null);
+    const [isAiEvaluationLoading, setIsAiEvaluationLoading] = useState<boolean>(false);
+
+    const handleAiEvaluation = async () => {
+        setIsAiEvaluationLoading(true);
+
+        try {
+            const response = await fetch('/api/evaluate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    company_id: currentCompany.id,
+                }),
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || 'AI evaluation failed');
+            }
+
+            console.log('AI Evaluation API Result:', result);
+            setAiEvaluation(result.evaluation);
+            setIsAiModalOpen(true);
+        } catch (error) {
+            console.error('AI evaluation error:', error);
+            showActionToast('Unable to load AI evaluation.');
+        } finally {
+            setIsAiEvaluationLoading(false);
+        }
+    };
 
     // Add Payment / Transaction Modal
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState<boolean>(false);
@@ -35,7 +126,7 @@ export default function DashboardOverviewPage() {
     const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
 
     // Filter transactions based on in-table search
-    const filteredTransactions = transactions.filter(t => 
+    const filteredTransactions = transactions.filter(t =>
         t.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
         t.product.toLowerCase().includes(searchQuery.toLowerCase()) ||
         t.code.toLowerCase().includes(searchQuery.toLowerCase())
@@ -130,7 +221,13 @@ export default function DashboardOverviewPage() {
                             <div className="flex items-center gap-1.5">
                                 <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">Total Revenue</span>
                             </div>
-                            <div className="text-2xl font-bold text-gray-900 tracking-tight font-mono">{currentCompany.revenue}</div>
+                            <div className="text-2xl font-bold text-gray-900 tracking-tight font-mono">
+                                {isDashboardLoading
+                                    ? 'Loading...'
+                                    : dashboardData
+                                        ? `$${dashboardData.summary.revenue.toLocaleString()}`
+                                        : currentCompany.revenue}
+                            </div>
                         </div>
                         {/* Micro Sparkline Bar Chart */}
                         <div className="flex items-end gap-1 h-8 pt-1">
@@ -146,7 +243,13 @@ export default function DashboardOverviewPage() {
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2"></path>
                             </svg>
-                            <span>{currentCompany.revenueGrowth}</span>
+                            <span>
+                                {isDashboardLoading
+                                    ? 'Loading...'
+                                    : dashboardData
+                                        ? `${dashboardData.summary.revenueGrowth}%`
+                                        : currentCompany.revenueGrowth}
+                            </span>
                         </div>
                         <button className="text-gray-300 hover:text-gray-500">
                             <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
@@ -164,7 +267,13 @@ export default function DashboardOverviewPage() {
                                 <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">Total Orders</span>
                             </div>
                             <div className="flex items-baseline gap-1.5">
-                                <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">{currentCompany.orders}</span>
+                                <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">
+                                    {isDashboardLoading
+                                        ? 'Loading...'
+                                        : dashboardData
+                                            ? dashboardData.summary.paymentCount.toLocaleString()
+                                            : currentCompany.orders}
+                                </span>
                                 <span className="text-xs text-gray-400 font-normal">Orders</span>
                             </div>
                         </div>
@@ -182,7 +291,13 @@ export default function DashboardOverviewPage() {
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2"></path>
                             </svg>
-                            <span>{currentCompany.ordersGrowth}</span>
+                            <span>
+                                {isDashboardLoading
+                                    ? 'Loading...'
+                                    : dashboardData
+                                        ? `${dashboardData.summary.paymentGrowth}%`
+                                        : currentCompany.ordersGrowth}
+                            </span>
                         </div>
                         <button className="text-gray-300 hover:text-gray-500">
                             <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
@@ -200,7 +315,13 @@ export default function DashboardOverviewPage() {
                                 <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">New Customers</span>
                             </div>
                             <div className="flex items-baseline gap-1.5">
-                                <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">{currentCompany.customers}</span>
+                                <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">
+                                    {isDashboardLoading
+                                        ? 'Loading...'
+                                        : dashboardData
+                                            ? dashboardData.summary.customerCount.toLocaleString()
+                                            : currentCompany.customers}
+                                </span>
                                 <span className="text-xs text-gray-400 font-normal">New Users</span>
                             </div>
                         </div>
@@ -218,7 +339,13 @@ export default function DashboardOverviewPage() {
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2"></path>
                             </svg>
-                            <span>{currentCompany.customersGrowth}</span>
+                            <span>
+                                {isDashboardLoading
+                                    ? 'Loading...'
+                                    : dashboardData
+                                        ? `${dashboardData.summary.customerGrowth}%`
+                                        : currentCompany.customersGrowth}
+                            </span>
                         </div>
                         <button className="text-gray-300 hover:text-gray-500">
                             <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
@@ -457,7 +584,7 @@ export default function DashboardOverviewPage() {
 
                         {/* AI Insight Clickable Banner */}
                         <div
-                            onClick={() => setIsAiModalOpen(true)}
+                            onClick={handleAiEvaluation}
                             className="mt-3 bg-[#f8f9fa] hover:bg-gray-100 border border-gray-200/90 rounded-xl p-2.5 flex items-center justify-between cursor-pointer transition-all shadow-xs">
                             <div className="flex items-center gap-2 text-xs font-medium text-gray-800">
                                 <span className="text-amber-500 text-sm">✨</span>
@@ -654,16 +781,26 @@ export default function DashboardOverviewPage() {
             <AiScreeningModal
                 isOpen={isAiModalOpen}
                 onClose={() => setIsAiModalOpen(false)}
-                company={currentCompany}
+                company={
+                    aiEvaluation
+                        ? {
+                              ...currentCompany,
+                              aiTier: aiEvaluation.aiTier,
+                              aiScore: aiEvaluation.aiScore,
+                              aiRationale: aiEvaluation.aiRationale,
+                              highChurnWarning: aiEvaluation.highChurnWarning,
+                          }
+                        : currentCompany
+                }
             />
 
             {/* Add Payment Modal */}
             <AddPaymentModal
-    isOpen={isPaymentModalOpen}
-    onClose={() => setIsPaymentModalOpen(false)}
-    onAddTransaction={handleAddTransaction}
-    companyId={currentCompany.id}
-/>
+                isOpen={isPaymentModalOpen}
+                onClose={() => setIsPaymentModalOpen(false)}
+                onAddTransaction={handleAddTransaction}
+                companyId={currentCompany.id}
+            />
         </>
     );
 }
