@@ -13,7 +13,7 @@ export interface Company {
     conversionGrowth: string;
     categoryRevenue: string;
     categoryPeriod: string;
-    aiTier: 'Prime' | 'Good' | 'Risky';
+    aiTier: 'Outperforming' | 'Moderate' | 'At Risk';
     aiScore: number;
     aiRationale: string;
     highChurnWarning?: boolean;
@@ -49,8 +49,10 @@ export interface Transaction {
     code: string;
     customer: string;
     product: string;
-    status: 'Success' | 'Pending' | 'Refunded';
-    qty: number;
-    unitPrice: string;
+    status: 'Success' | 'Pending' | 'Refunded' | 'Duplicated';
+    qty?: number;
+    unitPrice?: string;
     totalRevenue: string;
+    timestamp?: string;
+    relativeTime?: string;
 }
