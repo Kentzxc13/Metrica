@@ -49,7 +49,7 @@ export interface Transaction {
     code: string;
     customer: string;
     product: string;
-    status: 'Success' | 'Pending' | 'Refunded';
+    status: 'Success' | 'Pending' | 'Refunded' | 'Duplicated';
     qty?: number;
     unitPrice?: string;
     totalRevenue: string;

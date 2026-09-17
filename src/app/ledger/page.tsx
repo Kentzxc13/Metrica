@@ -1,13 +1,70 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useDashboard } from '@/context/DashboardContext';
 import { INITIAL_AUDIT_EVENTS } from '@/data/auditEvents';
 import { AuditLedgerEvent } from '@/types/ledger';
 import { AuditEventModal } from '@/components/modals/AuditEventModal';
+import { formatTimeClean, getRelativeTime } from '@/utils/time';
+
+// Module-level flag so it survives client-side page transitions (Ledger -> Dashboard -> Ledger),
+// but cleanly resets on page refresh/initial reload so user can test the entrance animation.
+let hasEverAnimatedLedger = false;
 
 export default function EventLedgerPage() {
     const { globalSearchQuery, showActionToast } = useDashboard();
+
+    // One-time staggered row animation state across navigation
+    const [shouldAnimateRows, setShouldAnimateRows] = useState<boolean>(() => hasEverAnimatedLedger);
+    const [hasAlreadyAnimated, setHasAlreadyAnimated] = useState<boolean>(() => hasEverAnimatedLedger);
+    const tableSectionRef = useRef<HTMLElement>(null);
+
+    useEffect(() => {
+        if (hasEverAnimatedLedger) {
+            setShouldAnimateRows(true);
+            setHasAlreadyAnimated(true);
+            return;
+        }
+
+        const el = tableSectionRef.current;
+        if (!el) return;
+
+        if (typeof window === 'undefined' || !('IntersectionObserver' in window)) {
+            setShouldAnimateRows(true);
+            setHasAlreadyAnimated(true);
+            hasEverAnimatedLedger = true;
+            return;
+        }
+
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry.isIntersecting) {
+                    setShouldAnimateRows(true);
+                    hasEverAnimatedLedger = true;
+                    setTimeout(() => {
+                        setHasAlreadyAnimated(true);
+                    }, 800);
+                    observer.disconnect();
+                }
+            },
+            {
+                rootMargin: '0px 0px -60px 0px',
+                threshold: 0.1,
+            }
+        );
+
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, []);
+
+    // Periodic ticker so relative time (e.g. 2m ago) updates automatically every 30s
+    const [, setTimeTick] = useState<number>(0);
+    useEffect(() => {
+        const timer = window.setInterval(() => {
+            setTimeTick(t => t + 1);
+        }, 30000);
+        return () => window.clearInterval(timer);
+    }, []);
 
     const [ledgerCategoryFilter, setLedgerCategoryFilter] = useState<string>('All Events');
     const [isLedgerDropdownOpen, setIsLedgerDropdownOpen] = useState<boolean>(false);
@@ -218,7 +275,7 @@ export default function EventLedgerPage() {
             </section>
 
             {/* Section 2: Immutable Telemetry Table */}
-            <section className="bg-white rounded-2xl p-5 border border-gray-200/80 shadow-card" data-purpose="event-ledger-table">
+            <section ref={tableSectionRef} className="bg-white rounded-2xl p-5 border border-gray-200/80 shadow-card" data-purpose="event-ledger-table">
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                     <div className="flex items-center gap-2">
                         <h2 className="text-xs uppercase font-bold tracking-wider text-gray-500">Immutable Financial Audit Stream</h2>
@@ -230,7 +287,7 @@ export default function EventLedgerPage() {
                     </div>
                 </div>
 
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto overflow-y-hidden" style={{ overflowY: 'hidden' }}>
                     <table className="w-full text-left text-xs border-collapse">
                         <thead>
                             <tr className="border-b border-gray-100 text-gray-400 font-semibold uppercase text-[11px]">
@@ -240,93 +297,109 @@ export default function EventLedgerPage() {
                                 <th className="py-3 px-3">MRR Movement</th>
                                 <th className="py-3 px-3">Gateway</th>
                                 <th className="py-3 px-3">Status</th>
-                                <th className="py-3 px-3 text-right">Actions</th>
+                                <th className="py-3 px-3 text-center w-20">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
-                            {filteredAuditEvents.map((evt) => (
-                                <tr
-                                    key={evt.id}
-                                    onClick={() => setSelectedAuditEvent(evt)}
-                                    className="hover:bg-gray-50/70 transition-colors cursor-pointer group">
-                                    {/* Timestamp */}
-                                    <td className="py-3.5 px-3">
-                                        <div className="font-mono text-xs font-bold text-gray-900">{evt.timestamp}</div>
-                                        <span className="text-[10px] text-gray-400">{evt.relativeTime}</span>
-                                    </td>
+                            {filteredAuditEvents.map((evt, index) => {
+                                const rowClass = !shouldAnimateRows
+                                    ? "event-row-hidden"
+                                    : hasAlreadyAnimated
+                                        ? "event-row-static event-row-interactive"
+                                        : "event-row-animated event-row-interactive";
 
-                                    {/* Event Code & Name */}
-                                    <td className="py-3.5 px-3">
-                                        <div className="font-mono text-xs font-semibold text-gray-900 group-hover:text-black transition-colors">{evt.code}</div>
-                                        <span className="text-[11px] text-gray-400 font-mono">{evt.name}</span>
-                                    </td>
+                                const isSuccess = evt.status === 'Delivered 200 OK' || evt.status.toLowerCase().includes('ok') || evt.status.toLowerCase().includes('success');
+                                const isPending = evt.status === 'Pending Retry' || evt.status.toLowerCase().includes('pending');
+                                const isFailed = evt.status === 'Failed 402' || evt.status.toLowerCase().includes('fail') || evt.status.toLowerCase().includes('error');
+                                const isRefunded = evt.status === 'Refunded';
 
-                                    {/* Customer & Workspace */}
-                                    <td className="py-3.5 px-3">
-                                        <div className="font-bold text-gray-900">{evt.customer}</div>
-                                        <span className="text-[11px] text-gray-400">{evt.company}</span>
-                                    </td>
+                                const bubbleColor = isSuccess
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+                                    : isPending
+                                    ? 'bg-amber-50 text-amber-700 border border-amber-200/60'
+                                    : isFailed
+                                    ? 'bg-rose-50 text-rose-700 border border-rose-200/60'
+                                    : isRefunded
+                                    ? 'bg-purple-50 text-purple-700 border border-purple-200/60'
+                                    : 'bg-gray-100 text-gray-600 border border-gray-200/80';
 
-                                    {/* MRR Movement */}
-                                    <td className="py-3.5 px-3">
-                                        <span className={`font-mono font-bold text-xs ${
-                                            evt.isPositive
-                                                ? 'text-emerald-600'
-                                                : evt.isNegative
-                                                ? 'text-rose-600'
-                                                : 'text-gray-500'
-                                        }`}>
-                                            {evt.mrrDelta}
-                                        </span>
-                                    </td>
+                                const dotColor = isSuccess
+                                    ? 'bg-emerald-500'
+                                    : isPending
+                                    ? 'bg-amber-500'
+                                    : isFailed
+                                    ? 'bg-rose-500'
+                                    : isRefunded
+                                    ? 'bg-purple-500'
+                                    : 'bg-gray-400';
 
-                                    {/* Gateway */}
-                                    <td className="py-3.5 px-3 text-gray-600 text-xs">
-                                        {evt.gateway}
-                                    </td>
+                                return (
+                                    <tr
+                                        key={evt.id}
+                                        onClick={() => setSelectedAuditEvent(evt)}
+                                        className={`hover:bg-gray-50/70 transition-colors cursor-pointer group ${rowClass}`}>
+                                        {/* Timestamp */}
+                                        <td className="py-3.5 px-3">
+                                            <div className="font-mono text-xs font-bold text-gray-900" suppressHydrationWarning>{formatTimeClean(evt.timestamp)}</div>
+                                            <span className="text-[10px] text-gray-400" suppressHydrationWarning>{getRelativeTime(evt.timestamp, evt.relativeTime)}</span>
+                                        </td>
 
-                                    {/* Status */}
-                                    <td className="py-3.5 px-3">
-                                        {evt.status === 'Failed 402' ? (
-                                            <span className="inline-flex items-center gap-1 font-semibold text-xs text-rose-600">
+                                        {/* Event Code & Name */}
+                                        <td className="py-3.5 px-3">
+                                            <div className="font-mono text-xs font-semibold text-gray-900 group-hover:text-black transition-colors">{evt.code}</div>
+                                            <span className="text-[11px] text-gray-400 font-mono">{evt.name}</span>
+                                        </td>
+
+                                        {/* Customer & Workspace */}
+                                        <td className="py-3.5 px-3">
+                                            <div className="font-bold text-gray-900">{evt.customer}</div>
+                                            <span className="text-[11px] text-gray-400">{evt.company}</span>
+                                        </td>
+
+                                        {/* MRR Movement */}
+                                        <td className="py-3.5 px-3">
+                                            <span className={`font-mono font-bold text-xs ${
+                                                evt.isPositive
+                                                    ? 'text-emerald-600'
+                                                    : evt.isNegative
+                                                    ? 'text-rose-600'
+                                                    : 'text-gray-500'
+                                            }`}>
+                                                {evt.mrrDelta}
+                                            </span>
+                                        </td>
+
+                                        {/* Gateway */}
+                                        <td className="py-3.5 px-3 text-gray-600 text-xs">
+                                            {evt.gateway}
+                                        </td>
+
+                                        {/* Status */}
+                                        <td className="py-3.5 px-3">
+                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium shadow-2xs ${bubbleColor}`}>
+                                                <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`}></span>
                                                 <span>{evt.status}</span>
-                                                <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
-                                                </svg>
                                             </span>
-                                        ) : evt.status === 'Delivered 200 OK' ? (
-                                            <span className="font-semibold text-xs text-emerald-600">
-                                                {evt.status}
-                                            </span>
-                                        ) : evt.status === 'Pending Retry' ? (
-                                            <span className="font-semibold text-xs text-amber-600">
-                                                {evt.status}
-                                            </span>
-                                        ) : (
-                                            <span className="font-semibold text-xs text-gray-500">
-                                                {evt.status}
-                                            </span>
-                                        )}
-                                    </td>
+                                        </td>
 
-                                    {/* Actions Column */}
-                                    <td className="py-3.5 px-3 text-right" onClick={(e) => e.stopPropagation()}>
-                                        <div className="relative inline-block text-left">
-                                            <button
-                                                onClick={() => setActiveLedgerMenuId(activeLedgerMenuId === evt.id ? null : evt.id)}
-                                                className="p-1 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-                                                title="Event actions">
-                                                <svg className="w-4 h-4 inline" fill="currentColor" viewBox="0 0 20 20">
-                                                    <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z"></path>
-                                                </svg>
-                                            </button>
+                                        {/* Actions Column */}
+                                        <td className="py-3.5 px-3 text-center w-20" onClick={(e) => e.stopPropagation()}>
+                                            <div className="relative inline-flex items-center justify-center">
+                                                <button
+                                                    onClick={() => setActiveLedgerMenuId(activeLedgerMenuId === evt.id ? null : evt.id)}
+                                                    className="p-1 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors flex items-center justify-center"
+                                                    title="Event actions">
+                                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z"></path>
+                                                    </svg>
+                                                </button>
 
-                                            {/* Contextual Action Dropdown */}
-                                            {activeLedgerMenuId === evt.id && (
-                                                <div className="absolute right-0 top-full mt-1.5 w-56 bg-white rounded-xl shadow-floating border border-gray-200/90 py-1.5 z-40 text-left animate-in fade-in zoom-in-95">
+                                                {/* Contextual Action Dropdown */}
+                                                {activeLedgerMenuId === evt.id && (
+                                                    <div className={`absolute right-0 ${index >= filteredAuditEvents.length - 2 ? 'bottom-full mb-1.5' : 'top-full mt-1.5'} w-56 bg-white rounded-xl shadow-floating border border-gray-200/90 py-1.5 z-40 text-left animate-in fade-in zoom-in-95`}>
                                                     <div className="px-3 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100 flex items-center justify-between">
                                                         <span>{evt.code}</span>
-                                                        <span className="font-mono text-[9px]">{evt.gateway}</span>
+                                                        <span className="font-mono text-[10px]">{evt.gateway}</span>
                                                     </div>
 
                                                     <button
@@ -385,7 +458,8 @@ export default function EventLedgerPage() {
                                         </div>
                                     </td>
                                 </tr>
-                            ))}
+                            );
+                        })}
 
                             {filteredAuditEvents.length === 0 && (
                                 <tr>

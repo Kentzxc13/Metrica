@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { AuditLedgerEvent } from '@/types/ledger';
+import { formatTimeClean } from '@/utils/time';
 
 interface AuditEventModalProps {
     event: AuditLedgerEvent | null;
@@ -61,7 +62,7 @@ export function AuditEventModal({ event, onClose, onShowToast }: AuditEventModal
                     </div>
                     <div>
                         <span className="text-[10px] uppercase font-semibold text-gray-400 tracking-wider block">Timestamp</span>
-                        <span className="font-mono text-gray-900 text-xs block mt-0.5">{event.timestamp}</span>
+                        <span className="font-mono text-gray-900 text-xs block mt-0.5">{formatTimeClean(event.timestamp)}</span>
                     </div>
                 </div>
 

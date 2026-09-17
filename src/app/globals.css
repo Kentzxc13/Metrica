@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 @theme inline {
-  --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-sans: var(--font-inter), "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-jetbrains), "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   
   --color-zinc-50: #FAFAFA;
   --color-zinc-100: #F4F4F5;
@@ -155,7 +155,7 @@ h1, h2, h3, h4, h5, h6 {
         }
 
         .matrix-cell-new {
-            background-color: #d1d5db;
+            background-color: #dad9e3;
         }
 
         .matrix-cell-active {
@@ -166,4 +166,87 @@ h1, h2, h3, h4, h5, h6 {
             background-color: #000000;
             transform: scale(1.1);
         }
-    
+
+/* Recent Events Table Animation (rows: 380ms, 70ms apart, ease-out; hover: lift 1px, 150ms) */
+@keyframes rowFadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.event-row-hidden {
+  opacity: 0 !important;
+  transform: translateY(12px) !important;
+  pointer-events: none;
+}
+
+.event-row-animated {
+  opacity: 0;
+  transform: translateY(12px);
+  animation: rowFadeInUp 380ms ease-out both;
+}
+
+.event-row-animated:nth-child(1) { animation-delay: 0ms; }
+.event-row-animated:nth-child(2) { animation-delay: 70ms; }
+.event-row-animated:nth-child(3) { animation-delay: 140ms; }
+.event-row-animated:nth-child(4) { animation-delay: 210ms; }
+.event-row-animated:nth-child(5) { animation-delay: 280ms; }
+.event-row-animated:nth-child(6) { animation-delay: 350ms; }
+.event-row-animated:nth-child(n+7) { animation-delay: 420ms; }
+
+.event-row-static {
+  opacity: 1 !important;
+  transform: none !important;
+  animation: none !important;
+}
+
+/* Row Hover: lift 1px, 150ms */
+.event-row-interactive {
+  transition: transform 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
+}
+.event-row-interactive:hover {
+  transform: translateY(-1px);
+  background-color: #ffffff;
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.05);
+  position: relative;
+  z-index: 10;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .event-row-hidden,
+  .event-row-animated,
+  .event-row-static {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+  }
+}
+
+/* Waving hand micro-animation */
+@keyframes wave-animation {
+  0% { transform: rotate(0deg); }
+  10% { transform: rotate(14deg); }
+  20% { transform: rotate(-8deg); }
+  30% { transform: rotate(14deg); }
+  40% { transform: rotate(-4deg); }
+  50% { transform: rotate(10deg); }
+  60% { transform: rotate(0deg); }
+  100% { transform: rotate(0deg); }
+}
+
+.animate-wave {
+  display: inline-block;
+  transform-origin: 70% 70%;
+  animation: wave-animation 2.2s infinite ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-wave {
+    animation: none !important;
+  }
+}

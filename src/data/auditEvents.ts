@@ -4,7 +4,7 @@ export const INITIAL_AUDIT_EVENTS: AuditLedgerEvent[] = [
     {
         id: 'evt-1',
         code: '#evt_9410',
-        timestamp: '14:32:05 UTC',
+        timestamp: '14:32:05',
         relativeTime: '2m ago',
         name: 'customer.subscription.created',
         category: 'New Subscription',
@@ -27,7 +27,7 @@ export const INITIAL_AUDIT_EVENTS: AuditLedgerEvent[] = [
     {
         id: 'evt-2',
         code: '#evt_9411',
-        timestamp: '13:58:12 UTC',
+        timestamp: '13:58:12',
         relativeTime: '36m ago',
         name: 'plan.tier_expanded',
         category: 'Upgrade & Expansion',
@@ -50,7 +50,7 @@ export const INITIAL_AUDIT_EVENTS: AuditLedgerEvent[] = [
     {
         id: 'evt-3',
         code: '#evt_9412',
-        timestamp: '12:14:45 UTC',
+        timestamp: '12:14:45',
         relativeTime: '2h ago',
         name: 'invoice.payment_failed',
         category: 'Failed Billing',
@@ -74,7 +74,7 @@ export const INITIAL_AUDIT_EVENTS: AuditLedgerEvent[] = [
     {
         id: 'evt-4',
         code: '#evt_9413',
-        timestamp: '10:41:20 UTC',
+        timestamp: '10:41:20',
         relativeTime: '4h ago',
         name: 'charge.dispute.created',
         category: 'Failed Billing',
@@ -96,7 +96,7 @@ export const INITIAL_AUDIT_EVENTS: AuditLedgerEvent[] = [
     {
         id: 'evt-5',
         code: '#evt_9414',
-        timestamp: '09:20:18 UTC',
+        timestamp: '09:20:18',
         relativeTime: '5h ago',
         name: 'customer.subscription.created',
         category: 'New Subscription',
@@ -119,7 +119,7 @@ export const INITIAL_AUDIT_EVENTS: AuditLedgerEvent[] = [
     {
         id: 'evt-6',
         code: '#evt_9415',
-        timestamp: '07:15:33 UTC',
+        timestamp: '07:15:33',
         relativeTime: '7h ago',
         name: 'subscription.seat_addon_added',
         category: 'Upgrade & Expansion',
@@ -142,8 +142,8 @@ export const INITIAL_AUDIT_EVENTS: AuditLedgerEvent[] = [
     {
         id: 'evt-7',
         code: '#evt_9416',
-        timestamp: '05:40:02 UTC',
-        relativeTime: '9h ago',
+        timestamp: '05:40:02',
+        relativeTime: '24h ago',
         name: 'customer.subscription.deleted',
         category: 'Churn & Cancellation',
         customer: 'Tariq Mansour',
@@ -164,8 +164,8 @@ export const INITIAL_AUDIT_EVENTS: AuditLedgerEvent[] = [
     {
         id: 'evt-8',
         code: '#evt_9417',
-        timestamp: '03:10:50 UTC',
-        relativeTime: '11h ago',
+        timestamp: '03:10:50',
+        relativeTime: '3d ago',
         name: 'security.audit_log_exported',
         category: 'Audit & Security',
         customer: 'Salung Prastyo (Admin)',

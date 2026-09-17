@@ -1,12 +1,16 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useDashboard } from '@/context/DashboardContext';
 import { COMPANIES } from '@/data/companies';
 import { Company } from '@/types/company';
 import { AiScreeningModal } from '@/components/modals/AiScreeningModal';
+
+// Module-level flag so it survives client-side page transitions (Comparison -> Dashboard -> Comparison),
+// but cleanly resets on page refresh/initial reload so user can test the entrance animation.
+let hasEverAnimatedComparison = false;
 
 export default function CompanyComparisonPage() {
     const router = useRouter();
@@ -16,6 +20,49 @@ export default function CompanyComparisonPage() {
         globalSearchQuery,
         showActionToast
     } = useDashboard();
+
+    // Benchmark matrix one-time animation state across navigation
+    const [shouldAnimateRows, setShouldAnimateRows] = useState<boolean>(() => hasEverAnimatedComparison);
+    const [hasAlreadyAnimated, setHasAlreadyAnimated] = useState<boolean>(() => hasEverAnimatedComparison);
+    const tableSectionRef = useRef<HTMLElement>(null);
+
+    useEffect(() => {
+        if (hasEverAnimatedComparison) {
+            setShouldAnimateRows(true);
+            setHasAlreadyAnimated(true);
+            return;
+        }
+
+        const el = tableSectionRef.current;
+        if (!el) return;
+
+        if (typeof window === 'undefined' || !('IntersectionObserver' in window)) {
+            setShouldAnimateRows(true);
+            setHasAlreadyAnimated(true);
+            hasEverAnimatedComparison = true;
+            return;
+        }
+
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry.isIntersecting) {
+                    setShouldAnimateRows(true);
+                    hasEverAnimatedComparison = true;
+                    setTimeout(() => {
+                        setHasAlreadyAnimated(true);
+                    }, 800);
+                    observer.disconnect();
+                }
+            },
+            {
+                rootMargin: '0px 0px -60px 0px',
+                threshold: 0.1,
+            }
+        );
+
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, []);
 
     const [comparisonTierFilter, setComparisonTierFilter] = useState<'All' | 'Outperforming' | 'Moderate' | 'At Risk'>('All');
     const [activeActionMenuId, setActiveActionMenuId] = useState<string | null>(null);
@@ -218,7 +265,7 @@ export default function CompanyComparisonPage() {
             {/* END: MetricCardsGrid */}
 
             {/* Benchmark Matrix Table Container */}
-            <section className="bg-white rounded-2xl border border-gray-200/80 shadow-card p-5">
+            <section ref={tableSectionRef} className="bg-white rounded-2xl border border-gray-200/80 shadow-card p-5" data-purpose="benchmark-matrix">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                     <div>
                         <h2 className="text-base font-bold text-gray-900">Benchmark Matrix</h2>
@@ -265,7 +312,7 @@ export default function CompanyComparisonPage() {
                 </div>
 
                 {/* Table */}
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto overflow-y-hidden" style={{ overflowY: 'hidden' }}>
                     <table className="w-full text-left text-xs border-collapse">
                         <thead>
                             <tr className="border-b border-gray-100 text-gray-400 font-semibold uppercase text-[11px]">
@@ -288,8 +335,14 @@ export default function CompanyComparisonPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
-                            {filteredCompanies.map((c) => {
+                            {filteredCompanies.map((c, index) => {
                                 const isCurrent = selectedCompanyId === c.id;
+                                const rowClass = !shouldAnimateRows
+                                    ? "event-row-hidden"
+                                    : hasAlreadyAnimated
+                                        ? "event-row-static event-row-interactive"
+                                        : "event-row-animated event-row-interactive";
+
                                 return (
                                     <tr
                                         key={c.id}
@@ -299,7 +352,7 @@ export default function CompanyComparisonPage() {
                                         }}
                                         className={`hover:bg-gray-50/80 transition-colors cursor-pointer group ${
                                             isCurrent ? 'bg-zinc-50/60' : ''
-                                        }`}>
+                                        } ${rowClass}`}>
                                         {/* Checkbox */}
                                         <td className="py-3.5 px-2" onClick={(e) => e.stopPropagation()}>
                                             <input
@@ -322,7 +375,7 @@ export default function CompanyComparisonPage() {
                                                             {c.name}
                                                         </span>
                                                         {isCurrent && (
-                                                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-black text-white">
+                                                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-black text-white">
                                                                 Active
                                                             </span>
                                                         )}
@@ -372,9 +425,7 @@ export default function CompanyComparisonPage() {
                                         <td className="py-3.5 px-3">
                                             {c.aiTier === 'At Risk' ? (
                                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200/70 shadow-2xs">
-                                                    <svg className="w-3.5 h-3.5 text-rose-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                                    </svg>
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
                                                     <span>At Risk</span>
                                                 </span>
                                             ) : c.aiTier === 'Moderate' ? (
@@ -391,13 +442,13 @@ export default function CompanyComparisonPage() {
                                         </td>
 
                                         {/* Actions Column */}
-                                        <td className="py-3.5 px-3 text-center" onClick={(e) => e.stopPropagation()}>
-                                            <div className="relative inline-block text-left">
+                                        <td className="py-3.5 px-3 text-center w-20" onClick={(e) => e.stopPropagation()}>
+                                            <div className="relative inline-flex items-center justify-center">
                                                 <button
                                                     onClick={() => setActiveActionMenuId(activeActionMenuId === c.id ? null : c.id)}
-                                                    className="p-1 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                                                    className="p-1 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors flex items-center justify-center"
                                                     title="Company actions">
-                                                    <svg className="w-4 h-4 inline" fill="currentColor" viewBox="0 0 20 20">
+                                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                                                         <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z"></path>
                                                     </svg>
                                                 </button>
@@ -405,7 +456,7 @@ export default function CompanyComparisonPage() {
                                                 {/* Contextual Action Dropdown */}
                                                 {activeActionMenuId === c.id && (
                                                     <div
-                                                        className="absolute right-0 top-full mt-1.5 w-52 bg-white rounded-xl shadow-floating border border-gray-200/90 py-1.5 z-40 text-left animate-in fade-in zoom-in-95">
+                                                        className={`absolute right-0 ${index >= filteredCompanies.length - 2 ? 'bottom-full mb-1.5' : 'top-full mt-1.5'} w-52 bg-white rounded-xl shadow-floating border border-gray-200/90 py-1.5 z-40 text-left animate-in fade-in zoom-in-95`}>
                                                         <div className="px-3 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">
                                                             {c.name}
                                                         </div>

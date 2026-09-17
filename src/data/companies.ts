@@ -126,8 +126,8 @@ export const REVENUE_BREAKDOWN_BARS: RevenueBreakdownBar[] = [
 ];
 
 export const INITIAL_TRANSACTIONS: Transaction[] = [
-    { id: '1', code: '#evt_9410', customer: 'Ryan Korsgaard', product: 'Enterprise Tier License', status: 'Success', totalRevenue: '$41,400', timestamp: '14:32:05 UTC', relativeTime: '2m ago' },
-    { id: '2', code: '#evt_9411', customer: 'Madelyn Lubin', product: 'Pro Annual Seat Package', status: 'Success', totalRevenue: '$89,200', timestamp: '13:58:12 UTC', relativeTime: '36m ago' },
-    { id: '3', code: '#evt_9412', customer: 'Abram Bergson', product: 'Cloud Dedicated Node', status: 'Pending', totalRevenue: '$75,900', timestamp: '12:14:45 UTC', relativeTime: '2h ago' },
-    { id: '4', code: '#evt_9413', customer: 'Phillip Mango', product: 'Integration API Connector', status: 'Refunded', totalRevenue: '$19,500', timestamp: '10:05:19 UTC', relativeTime: '4h ago' },
+    { id: '1', code: '#evt_9410', customer: 'Ryan Korsgaard', product: 'Enterprise Tier License', status: 'Success', totalRevenue: '$41,400', timestamp: '14:32:05', relativeTime: '2m ago' },
+    { id: '2', code: '#evt_9411', customer: 'Madelyn Lubin', product: 'Pro Annual Seat Package', status: 'Success', totalRevenue: '$89,200', timestamp: '13:58:12', relativeTime: '36m ago' },
+    { id: '3', code: '#evt_9412', customer: 'Abram Bergson', product: 'Cloud Dedicated Node', status: 'Pending', totalRevenue: '$75,900', timestamp: '12:14:45', relativeTime: '2h ago' },
+    { id: '4', code: '#evt_9413', customer: 'Phillip Mango', product: 'Integration API Connector', status: 'Refunded', totalRevenue: '$19,500', timestamp: '10:05:19', relativeTime: '4h ago' },
 ];
