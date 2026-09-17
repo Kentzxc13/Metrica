@@ -18,6 +18,46 @@ let hasEverAnimatedRecentEvents = false;
 export default function DashboardOverviewPage() {
   const { currentCompany, showActionToast, transactions, addTransaction } = useDashboard();
 
+  interface DashboardSummary {
+    metricDate: string;
+    revenue: number;
+    paymentCount: number;
+    customerCount: number;
+    churnCount: number;
+    status: string;
+    revenueGrowth: number;
+    paymentGrowth: number;
+    customerGrowth: number;
+    churnGrowth: number;
+  }
+
+  const [dashboardData, setDashboardData] = useState<DashboardSummary | null>(null);
+  const [isDashboardLoading, setIsDashboardLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadDashboardData = async () => {
+      setIsDashboardLoading(true);
+      try {
+        const res = await fetch(`/api/dashboard?company_id=${encodeURIComponent(currentCompany.id)}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (isMounted && json.summary) {
+            setDashboardData(json.summary);
+          }
+        }
+      } catch (err) {
+        console.warn('Dashboard live metrics fetch error:', err);
+      } finally {
+        if (isMounted) setIsDashboardLoading(false);
+      }
+    };
+    loadDashboardData();
+    return () => {
+      isMounted = false;
+    };
+  }, [currentCompany.id]);
+
   // Recent Events one-time animation state across navigation
   const [shouldAnimateRows, setShouldAnimateRows] = useState<boolean>(
     () => hasEverAnimatedRecentEvents,
@@ -323,9 +363,36 @@ export default function DashboardOverviewPage() {
                 <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">
                   Total Revenue
                 </span>
+                <span
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    (dashboardData?.status === "Delayed" || dashboardData?.status === "Estimated")
+                      ? "bg-amber-50 text-amber-700 border border-amber-200/70"
+                      : "bg-emerald-50 text-emerald-700 border border-emerald-200/70"
+                  }`}
+                  title={
+                    (dashboardData?.status === "Delayed" || dashboardData?.status === "Estimated")
+                      ? "Backdated records pending daily reconciliation (TC-03)"
+                      : "Live synchronized telemetry"
+                  }
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      (dashboardData?.status === "Delayed" || dashboardData?.status === "Estimated")
+                        ? "bg-amber-500 animate-pulse"
+                        : "bg-emerald-500"
+                    }`}
+                  />
+                  <span>{dashboardData?.status || "Live"}</span>
+                </span>
               </div>
               <div className="text-2xl font-bold text-gray-900 tracking-tight font-mono">
-                {currentCompany.revenue}
+                {isDashboardLoading ? (
+                  <span className="text-gray-400 text-lg animate-pulse">Loading...</span>
+                ) : dashboardData ? (
+                  `$${dashboardData.revenue.toLocaleString()}`
+                ) : (
+                  currentCompany.revenue
+                )}
               </div>
             </div>
             {/* Micro Sparkline Bar Chart */}
@@ -602,7 +669,13 @@ export default function DashboardOverviewPage() {
                 <div className="text-xs text-gray-400">
                   Total Revenue:{" "}
                   <span className="text-lg font-bold text-gray-900 ml-1 font-mono">
-                    {currentCompany.revenue}
+                    {isDashboardLoading ? (
+                      "Loading..."
+                    ) : dashboardData ? (
+                      `$${dashboardData.revenue.toLocaleString()}`
+                    ) : (
+                      currentCompany.revenue
+                    )}
                   </span>
                 </div>
                 <div className="flex items-center gap-3 text-xs text-gray-500 font-medium">
@@ -993,6 +1066,22 @@ export default function DashboardOverviewPage() {
             </h2>
             <span className="text-xs text-gray-400 font-normal">
               ({filteredTransactions.length} records)
+            </span>
+            <span
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                (dashboardData?.status === "Delayed" || dashboardData?.status === "Estimated")
+                  ? "bg-amber-50 text-amber-700 border border-amber-200/70"
+                  : "bg-emerald-50 text-emerald-700 border border-emerald-200/70"
+              }`}
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  (dashboardData?.status === "Delayed" || dashboardData?.status === "Estimated")
+                    ? "bg-amber-500 animate-pulse"
+                    : "bg-emerald-500"
+                }`}
+              />
+              <span>{dashboardData?.status || "Live"}</span>
             </span>
           </div>
           <div className="flex items-center gap-2.5">

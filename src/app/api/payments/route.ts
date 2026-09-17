@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createHash } from 'crypto';
 import { supabase } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
@@ -44,23 +45,84 @@ function normalizeCompanyKey(value: string): string {
         .replace(/(inc|platform|gateway|saas|tool)$/g, '');
 }
 
-export async function GET() {
-    try {
-        if (supabase) {
-            const { data, error } = await supabase
-                .from('payments')
-                .select('id, payment_id, company_id, amount, currency, payment_timestamp, status, customer, product')
-                .order('payment_timestamp', { ascending: false })
-                .limit(20);
+function createVerificationHash(data: {
+    payment_id: string;
+    company_id: string;
+    amount: number;
+    currency: string;
+    payment_timestamp: string;
+}) {
+    const payload = [
+        data.payment_id,
+        data.company_id,
+        data.amount,
+        data.currency,
+        data.payment_timestamp,
+    ].join('|');
 
-            if (!error && data && data.length > 0) {
+    return createHash('sha256').update(payload).digest('hex');
+}
+
+export async function GET(request: NextRequest) {
+    try {
+        const { searchParams } = new URL(request.url);
+        const companyIdParam = searchParams.get('company_id');
+
+        if (supabase) {
+            let query = supabase
+                .from('payments')
+                .select('id, payment_id, company_id, amount, currency, payment_timestamp, status, customer, product, verification_hash')
+                .order('payment_timestamp', { ascending: false });
+
+            let resolvedCompany: { id: string; name: string; type?: string; initial?: string } | null = null;
+
+            if (companyIdParam) {
+                let targetCompanyUuid = companyIdParam;
+
+                if (!isUuid(companyIdParam)) {
+                    const { data: companies } = await supabase
+                        .from('companies')
+                        .select('id, name, type, initial');
+
+                    if (companies) {
+                        const requestedKey = normalizeCompanyKey(companyIdParam);
+                        const matched = companies.find(
+                            (c: { id: string; name: string }) => normalizeCompanyKey(c.name) === requestedKey
+                        );
+                        if (matched) {
+                            targetCompanyUuid = matched.id;
+                            resolvedCompany = matched;
+                        }
+                    }
+                } else {
+                    const { data: comp } = await supabase
+                        .from('companies')
+                        .select('id, name, type, initial')
+                        .eq('id', targetCompanyUuid)
+                        .maybeSingle();
+                    if (comp) resolvedCompany = comp;
+                }
+
+                query = query.eq('company_id', targetCompanyUuid);
+            } else {
+                query = query.limit(25);
+            }
+
+            const { data, error } = await query;
+
+            if (!error && data) {
                 const formatted = data.map((item: any) => {
                     const code = item.payment_id?.startsWith('#') ? item.payment_id : `#${item.payment_id}`;
                     let status: 'Success' | 'Pending' | 'Refunded' | 'Duplicated' = 'Success';
                     const s = String(item.status || '').toUpperCase();
                     if (s.includes('DUP')) status = 'Duplicated';
                     else if (s.includes('PEND')) status = 'Pending';
-                    else if (s.includes('REFUND')) status = 'Refunded';
+                    else if (s.includes('REFUND') || s.includes('FAIL')) status = 'Refunded';
+
+                    const rawDate = item.payment_timestamp ? new Date(item.payment_timestamp) : new Date();
+                    const timestamp = !isNaN(rawDate.getTime())
+                        ? rawDate.toLocaleTimeString('en-GB', { hour12: false })
+                        : '12:00:00';
 
                     return {
                         id: item.id || item.payment_id,
@@ -69,25 +131,45 @@ export async function GET() {
                         product: item.product || 'Standard SaaS License',
                         status,
                         totalRevenue: `$${Number(item.amount || 0).toLocaleString()}`,
-                        timestamp: item.payment_timestamp
-                            ? new Date(item.payment_timestamp).toLocaleTimeString('en-GB', { hour12: false })
-                            : '12:00:00',
-                        relativeTime: 'Just now',
+                        timestamp,
+                        relativeTime: 'Recent',
+                        verification_hash: item.verification_hash,
                     };
                 });
+
                 return NextResponse.json(
-                    { success: true, source: 'supabase', transactions: formatted },
+                    {
+                        success: true,
+                        source: 'supabase',
+                        company: resolvedCompany,
+                        events: (data ?? []).map((p: any) => ({ ...p, event_type: 'PAYMENT' })),
+                        transactions: formatted,
+                        count: formatted.length,
+                    },
                     { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } }
                 );
             }
         }
+
         return NextResponse.json(
-            { success: true, source: 'in-memory', transactions: inMemoryTransactionsList },
+            {
+                success: true,
+                source: 'in-memory',
+                events: inMemoryTransactionsList,
+                transactions: inMemoryTransactionsList,
+                count: inMemoryTransactionsList.length,
+            },
             { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } }
         );
-    } catch (err) {
+    } catch {
         return NextResponse.json(
-            { success: true, source: 'fallback', transactions: inMemoryTransactionsList },
+            {
+                success: true,
+                source: 'fallback',
+                events: inMemoryTransactionsList,
+                transactions: inMemoryTransactionsList,
+                count: inMemoryTransactionsList.length,
+            },
             { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } }
         );
     }
@@ -106,7 +188,7 @@ export async function POST(request: NextRequest) {
 
         const normalizedPaymentId = body.payment_id.replace(/^#/, '').trim();
 
-        // Idempotency Engine check: prevent exact duplicate event ID / code processing
+        // Idempotency Engine check (TC-01): prevent exact duplicate event ID / code processing
         if (inMemoryProcessedIds.has(normalizedPaymentId)) {
             return NextResponse.json(
                 {
@@ -153,11 +235,16 @@ export async function POST(request: NextRequest) {
 
         let companyUuid = body.company_id;
         const code = body.payment_id.startsWith('#') ? body.payment_id : `#${body.payment_id}`;
+        const paymentStatus = (body.status ?? 'PROCESSED').toUpperCase();
+        const currency = body.currency ?? 'USD';
+
         let statusNormalized: 'Success' | 'Pending' | 'Refunded' | 'Duplicated' = 'Success';
-        if (body.status?.toUpperCase().includes('DUP') || body.is_duplicate) {
+        if (paymentStatus.includes('DUP') || body.is_duplicate) {
             statusNormalized = 'Duplicated';
-        } else if (body.status?.toUpperCase().includes('PEND')) {
+        } else if (paymentStatus.includes('PEND')) {
             statusNormalized = 'Pending';
+        } else if (paymentStatus.includes('REFUND') || paymentStatus.includes('FAIL')) {
+            statusNormalized = 'Refunded';
         }
 
         if (supabase) {
@@ -182,23 +269,46 @@ export async function POST(request: NextRequest) {
                     }
                 }
 
-                const { data, error } = await supabase
+                // 2b. Generate SHA-256 verification hash
+                const verificationHash = createVerificationHash({
+                    payment_id: body.payment_id,
+                    company_id: companyUuid,
+                    amount: body.amount,
+                    currency,
+                    payment_timestamp: body.payment_timestamp,
+                });
+
+                // 3. Insert payment (defensive: attempt with verification_hash, fallback without if column absent)
+                let insertPayload: Record<string, unknown> = {
+                    payment_id: body.payment_id,
+                    company_id: companyUuid,
+                    amount: body.amount,
+                    currency,
+                    payment_timestamp: body.payment_timestamp,
+                    status: statusNormalized === 'Duplicated' ? 'DUPLICATED' : (body.status ?? 'PROCESSED'),
+                    customer: body.customer ?? null,
+                    product: body.product ?? null,
+                    raw_payload: body.raw_payload ?? null,
+                    verification_hash: verificationHash,
+                };
+
+                let { data, error } = await supabase
                     .from('payments')
-                    .insert({
-                        payment_id: body.payment_id,
-                        company_id: companyUuid,
-                        amount: body.amount,
-                        currency: body.currency ?? 'USD',
-                        payment_timestamp: body.payment_timestamp,
-                        status: statusNormalized === 'Duplicated' ? 'DUPLICATED' : (body.status ?? 'PROCESSED'),
-                        customer: body.customer ?? null,
-                        product: body.product ?? null,
-                        raw_payload: body.raw_payload ?? null,
-                    })
-                    .select(
-                        'id, payment_id, company_id, amount, currency, payment_timestamp, received_at, status, customer, product'
-                    )
+                    .insert(insertPayload)
+                    .select('id, payment_id, company_id, amount, currency, payment_timestamp, received_at, status, customer, product')
                     .single();
+
+                // Fallback without verification_hash if column doesn't exist in Supabase yet
+                if (error && (error.code === '42703' || error.message.includes('verification_hash'))) {
+                    delete insertPayload.verification_hash;
+                    const retryResult = await supabase
+                        .from('payments')
+                        .insert(insertPayload)
+                        .select('id, payment_id, company_id, amount, currency, payment_timestamp, received_at, status, customer, product')
+                        .single();
+                    data = retryResult.data;
+                    error = retryResult.error;
+                }
 
                 if (error) {
                     if (error.code === '23505') {
@@ -215,6 +325,78 @@ export async function POST(request: NextRequest) {
                     console.warn('Supabase insert warning:', error.message);
                 } else if (data) {
                     inMemoryProcessedIds.add(normalizedPaymentId);
+
+                    // 4. Update metric rollup & Handle TC-03 / BUG-001 Delayed status
+                    if (paymentStatus === 'PROCESSED') {
+                        try {
+                            const paymentDate = new Date(body.payment_timestamp).toISOString().slice(0, 10);
+                            const todayDate = new Date().toISOString().slice(0, 10);
+                            const isBackdated = paymentDate < todayDate;
+                            const rollupStatus = isBackdated ? 'Delayed' : 'Live';
+
+                            const startOfDay = `${paymentDate}T00:00:00.000Z`;
+                            const startOfNextDay = new Date(
+                                new Date(startOfDay).getTime() + 24 * 60 * 60 * 1000
+                            ).toISOString();
+
+                            const { data: dayPayments } = await supabase
+                                .from('payments')
+                                .select('amount, customer')
+                                .eq('company_id', companyUuid)
+                                .eq('status', 'PROCESSED')
+                                .gte('payment_timestamp', startOfDay)
+                                .lt('payment_timestamp', startOfNextDay);
+
+                            const revenue = (dayPayments ?? []).reduce(
+                                (total: number, payment: { amount: number }) => total + Number(payment.amount),
+                                0
+                            );
+                            const paymentCount = dayPayments?.length ?? 0;
+                            const uniqueCustomers = new Set(
+                                (dayPayments ?? [])
+                                    .map((payment: { customer: string | null }) => payment.customer)
+                                    .filter((c): c is string => Boolean(c))
+                            );
+                            const customerCount = uniqueCustomers.size;
+
+                            const { data: existingRollup } = await supabase
+                                .from('metric_rollups')
+                                .select('id, status')
+                                .eq('company_id', companyUuid)
+                                .eq('metric_date', paymentDate)
+                                .order('created_at', { ascending: false })
+                                .limit(1)
+                                .maybeSingle();
+
+                            if (existingRollup) {
+                                await supabase
+                                    .from('metric_rollups')
+                                    .update({
+                                        revenue,
+                                        payment_count: paymentCount,
+                                        customer_count: customerCount,
+                                        status: rollupStatus,
+                                        updated_at: new Date().toISOString(),
+                                    })
+                                    .eq('id', existingRollup.id);
+                            } else {
+                                await supabase
+                                    .from('metric_rollups')
+                                    .insert({
+                                        company_id: companyUuid,
+                                        metric_date: paymentDate,
+                                        revenue,
+                                        payment_count: paymentCount,
+                                        customer_count: customerCount,
+                                        churn_count: 0,
+                                        status: rollupStatus,
+                                    });
+                            }
+                        } catch (rollupErr) {
+                            console.warn('Metric rollup update error:', rollupErr);
+                        }
+                    }
+
                     const formattedSavedTx = {
                         id: data.id || data.payment_id,
                         code,
@@ -224,6 +406,7 @@ export async function POST(request: NextRequest) {
                         totalRevenue: `$${Number(body.amount).toLocaleString()}`,
                         timestamp: new Date().toLocaleTimeString('en-GB', { hour12: false }),
                         relativeTime: 'Just now',
+                        verification_hash: verificationHash,
                     };
                     inMemoryTransactionsList.unshift(formattedSavedTx);
 
@@ -232,6 +415,7 @@ export async function POST(request: NextRequest) {
                             success: true,
                             payment: data,
                             transaction: formattedSavedTx,
+                            verification_hash: verificationHash,
                         },
                         { status: 201 }
                     );
@@ -243,13 +427,21 @@ export async function POST(request: NextRequest) {
 
         // Fallback in-memory response when Supabase is offline or not yet connected
         inMemoryProcessedIds.add(normalizedPaymentId);
+        const verificationHash = createVerificationHash({
+            payment_id: body.payment_id,
+            company_id: companyUuid,
+            amount: body.amount,
+            currency,
+            payment_timestamp: body.payment_timestamp,
+        });
+
         const fallbackPayment = {
             id: `pay_${Date.now()}`,
             code,
             payment_id: body.payment_id,
             company_id: companyUuid,
             amount: body.amount,
-            currency: body.currency ?? 'USD',
+            currency,
             payment_timestamp: body.payment_timestamp,
             received_at: new Date().toISOString(),
             status: statusNormalized,
@@ -258,6 +450,7 @@ export async function POST(request: NextRequest) {
             totalRevenue: `$${Number(body.amount).toLocaleString()}`,
             timestamp: new Date().toLocaleTimeString('en-GB', { hour12: false }),
             relativeTime: 'Just now',
+            verification_hash: verificationHash,
         };
 
         inMemoryTransactionsList.unshift(fallbackPayment);
@@ -267,6 +460,7 @@ export async function POST(request: NextRequest) {
                 success: true,
                 payment: fallbackPayment,
                 transaction: fallbackPayment,
+                verification_hash: verificationHash,
             },
             { status: 201 }
         );
