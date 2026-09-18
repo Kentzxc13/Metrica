@@ -309,6 +309,7 @@ export default function DashboardOverviewPage() {
         // 20 cells max = 60k users (3,000 users per discrete cell)
         const newUsersVal = Math.round(newCells * 3000);
         const existingUsersVal = Math.round(activeCells * 3000);
+        const totalUsersVal = newUsersVal + existingUsersVal;
         const weekRev = Math.round((baseCompRev / 4) * (0.88 + (((wIdx * 17) % 25) / 100)));
 
         return {
@@ -321,6 +322,7 @@ export default function DashboardOverviewPage() {
           emptyCells,
           newUserFormatted: `${Math.round(newUsersVal / 1000)}k`,
           existingUserFormatted: `${Math.round(existingUsersVal / 1000)}k`,
+          totalUsersFormatted: `${Math.round(totalUsersVal / 1000)}k`,
           revenueFormatted: `$${weekRev.toLocaleString()}`,
         };
       });
@@ -350,6 +352,7 @@ export default function DashboardOverviewPage() {
         // 20 cells max = 60k users (3,000 users per discrete cell)
         const newUsersVal = Math.round(newCells * 3000);
         const existingUsersVal = Math.round(activeCells * 3000);
+        const totalUsersVal = newUsersVal + existingUsersVal;
         const revVal = yearlyRevs[yIdx] || Math.round(baseCompRev * 5.8);
 
         return {
@@ -362,6 +365,7 @@ export default function DashboardOverviewPage() {
           emptyCells,
           newUserFormatted: `${Math.round(newUsersVal / 1000)}k`,
           existingUserFormatted: `${Math.round(existingUsersVal / 1000)}k`,
+          totalUsersFormatted: `${Math.round(totalUsersVal / 1000)}k`,
           revenueFormatted: `$${revVal.toLocaleString()}`,
         };
       });
@@ -402,6 +406,7 @@ export default function DashboardOverviewPage() {
       // 20 cells max = 60k users (3,000 users per discrete cell)
       const newUsersVal = Math.round(newCells * 3000);
       const existingUsersVal = Math.round(activeCells * 3000);
+      const totalUsersVal = newUsersVal + existingUsersVal;
       const mRev = live && live.revenue > 0 ? live.revenue : Math.round((monthlyBaseRevs[mIdx] || baseCompRev) * (baseCompRev / 54000));
 
       return {
@@ -414,6 +419,7 @@ export default function DashboardOverviewPage() {
         emptyCells,
         newUserFormatted: `${Math.round(newUsersVal / 1000)}k`,
         existingUserFormatted: `${Math.round(existingUsersVal / 1000)}k`,
+        totalUsersFormatted: `${Math.round(totalUsersVal / 1000)}k`,
         revenueFormatted: `$${mRev.toLocaleString()}`,
       };
     });
@@ -542,18 +548,18 @@ export default function DashboardOverviewPage() {
     const formatCurrency = (val: number) => `$${val.toLocaleString()}`;
 
     const bars = points.map((p, i) => {
-      const expansionNum = Math.round(p.amount * 0.32);
+      const expansionNum = Math.round(p.amount * 0.35);
       const baseNum = Math.max(0, p.amount - expansionNum);
 
-      // Elevated bar heights for impeccable vertical rhythm in the card
-      const maxBarHeight = 175;
-      const minBarHeight = 50;
+      // Elevated bar heights matching reference Image 2
+      const maxBarHeight = 225;
+      const minBarHeight = 85;
       const totalHeightPx = Math.max(
         minBarHeight,
         Math.min(maxBarHeight, Math.round((p.amount / peakVal) * maxBarHeight))
       );
-      const expansionPx = Math.max(14, Math.round(totalHeightPx * 0.32));
-      const basePx = Math.max(26, totalHeightPx - expansionPx);
+      const expansionPx = Math.max(26, Math.round(totalHeightPx * 0.35));
+      const basePx = Math.max(50, totalHeightPx - expansionPx);
 
       return {
         id: i + 1,
@@ -1270,7 +1276,7 @@ export default function DashboardOverviewPage() {
                       />
                     )}
 
-                    {/* Interactive Floating Tooltip Callout (Identical to reference image) */}
+                    {/* Interactive Floating Tooltip Callout */}
                     {isHovered && (
                       <div
                         className={`absolute bottom-full mb-3.5 ${
@@ -1279,18 +1285,33 @@ export default function DashboardOverviewPage() {
                             : col.colIndex >= 40
                             ? "right-0"
                             : "left-1/2 -translate-x-1/2"
-                        } z-30 bg-white/95 backdrop-blur-md border border-gray-200/90 rounded-2xl p-3.5 shadow-floating text-left min-w-[175px] w-max pointer-events-none select-none transition-all`}
+                        } z-30 bg-white/95 backdrop-blur-md border border-gray-200/90 rounded-2xl p-3.5 shadow-floating text-left min-w-[185px] w-max pointer-events-none select-none transition-all`}
                       >
-                        {/* Header: Revenue instead of date */}
-                        <div className="text-xs font-bold text-gray-900 tracking-tight mb-2.5 font-mono">
-                          {col.revenueFormatted}
+                        {/* Header: Total Users matching the top of the column on Y-Axis scale */}
+                        <div className="flex items-baseline justify-between gap-3 mb-2.5 pb-2 border-b border-gray-100">
+                          <div>
+                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block">
+                              Total Users
+                            </span>
+                            <span className="text-sm font-bold text-gray-900 font-mono tracking-tight">
+                              {col.totalUsersFormatted} Users
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block">
+                              Revenue
+                            </span>
+                            <span className="text-xs font-bold text-gray-800 font-mono">
+                              {col.revenueFormatted}
+                            </span>
+                          </div>
                         </div>
 
                         {/* Breakdown Rows */}
                         <div className="space-y-1.5 text-[11px]">
                           <div className="flex items-center justify-between gap-4 text-gray-500 whitespace-nowrap">
                             <span className="inline-flex items-center gap-2">
-                              <span className="w-2 h-2 rounded-full border border-gray-400 bg-white"></span>
+                              <span className="w-2 h-2 rounded-full border border-gray-400 bg-[#cbd5e1]"></span>
                               <span className="font-medium text-gray-600">New User</span>
                             </span>
                             <span className="font-bold text-gray-900 font-mono">
@@ -1369,7 +1390,7 @@ export default function DashboardOverviewPage() {
 
         {/* Right 4 Columns: Revenue Breakdown & AI Insight Card */}
         <div
-          className="lg:col-span-4 bg-white rounded-2xl p-5 border border-gray-200/80 shadow-card flex flex-col justify-between"
+          className="lg:col-span-4 bg-white rounded-2xl p-5 border border-gray-200/80 shadow-card flex flex-col"
           data-purpose="revenue-breakdown-card"
         >
           {/* Header */}
@@ -1531,11 +1552,22 @@ export default function DashboardOverviewPage() {
             )}
           </div>
 
-          {/* Vertical High-Density Bar Graph */}
-          <div className="mt-4 pt-3 border-t border-dashed border-gray-100">
+          {/* Vertical High-Density Bar Graph Canvas matching Image 2 */}
+          <div className="flex-1 flex flex-col justify-between mt-5 relative select-none">
+            {/* Background 5 Horizontal Dashed Guidelines with Left Bullets matching Image 2 */}
+            <div className="absolute inset-x-0 top-3 bottom-8 flex flex-col justify-between pointer-events-none">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div key={`guideline-${i}`} className="flex items-center w-full">
+                  <span className="w-1.5 h-1.5 rounded-full bg-gray-300 mr-2 flex-shrink-0 opacity-70" />
+                  <div className="flex-1 border-b border-gray-200/70 border-dashed" />
+                </div>
+              ))}
+            </div>
+
+            {/* 11 Needle Bars Canvas */}
             <div
               onMouseLeave={() => setHoveredRevenueBar(null)}
-              className="relative flex items-end justify-between h-52 px-2"
+              className="relative flex items-end justify-between flex-1 min-h-[260px] px-2 z-10"
             >
               {revenueBreakdownResult.bars.map((bar, idx) => {
                 const isHovered = hoveredRevenueBar === bar.id;
@@ -1585,7 +1617,7 @@ export default function DashboardOverviewPage() {
 
                     <div
                       style={{ height: `${bar.topPx}px` }}
-                      className={`w-1.5 bg-gray-200 rounded-t-sm transition-colors duration-200 ${
+                      className={`w-1.5 bg-[#cbd5e1] rounded-t-sm transition-colors duration-200 ${
                         isHovered ? "bg-gray-400" : "group-hover:bg-gray-300"
                       }`}
                     ></div>
@@ -1599,9 +1631,12 @@ export default function DashboardOverviewPage() {
                 );
               })}
             </div>
-            <div className="mt-2 flex items-center justify-between text-[10px] text-gray-400 font-mono">
-              <span>{revenueBreakdownResult.dateRange.start}</span>
-              <span>{revenueBreakdownResult.dateRange.end}</span>
+
+            {/* Bottom Dotted Axis Range (matching Image 2: 1 JAN ········ 30 JAN 2025) */}
+            <div className="mt-3 pt-1 flex items-center justify-between text-[10px] text-gray-400 font-mono">
+              <span className="flex-shrink-0">{revenueBreakdownResult.dateRange.start}</span>
+              <div className="flex-1 mx-3 border-b border-gray-200 border-dotted" />
+              <span className="flex-shrink-0">{revenueBreakdownResult.dateRange.end}</span>
             </div>
           </div>
         </div>
