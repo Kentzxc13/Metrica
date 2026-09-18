@@ -72,24 +72,58 @@ export function AuditEventModal({ event, onClose, onShowToast }: AuditEventModal
                         <span className="text-gray-400 font-medium">Gateway Ingestion:</span>
                         <span className="font-semibold text-gray-800">{event.gateway}</span>
                     </div>
+
                     <div className="flex items-center justify-between">
-                        <span className="text-gray-400 font-medium">Stripe / Invoice Ref:</span>
-                        <span className="font-mono font-semibold text-gray-900">{event.payload.invoiceId}</span>
+                        <span className="text-gray-400 font-medium">Payment / Invoice Ref:</span>
+                        <span className="font-mono font-semibold text-gray-900">
+                            {event.payload.invoiceId}
+                        </span>
                     </div>
+
                     <div className="flex items-center justify-between">
                         <span className="text-gray-400 font-medium">IP &amp; Geographic Origin:</span>
-                        <span className="font-mono text-gray-700">{event.payload.customerIp} ({event.payload.geo})</span>
+                        <span className="font-mono text-gray-700">
+                            {event.payload.customerIp} ({event.payload.geo})
+                        </span>
                     </div>
+
+                    <div className="flex items-start justify-between gap-4 pt-1 border-t border-gray-100">
+                        <span className="text-gray-400 font-medium whitespace-nowrap">
+                            SHA-256 Verification Hash:
+                        </span>
+
+                        <div className="flex items-start gap-2 min-w-0">
+                            <span className="font-mono text-[10px] text-gray-700 break-all text-right">
+                                {event.payload.signature}
+                            </span>
+
+                            <button
+                                onClick={() => {
+                                    navigator.clipboard?.writeText?.(event.payload.signature);
+                                    onShowToast(`Copied SHA-256 verification hash for ${event.code}!`);
+                                }}
+                                className="shrink-0 px-2 py-1 text-[10px] font-semibold bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+                            >
+                                Copy
+                            </button>
+                        </div>
+                    </div>
+
                     {event.payload.cardBrand && (
                         <div className="flex items-center justify-between">
                             <span className="text-gray-400 font-medium">Payment Instrument:</span>
-                            <span className="text-gray-800">{event.payload.cardBrand} •••• {event.payload.cardLast4}</span>
+                            <span className="text-gray-800">
+                                {event.payload.cardBrand} •••• {event.payload.cardLast4}
+                            </span>
                         </div>
                     )}
+
                     {event.payload.failureReason && (
                         <div className="flex items-start justify-between text-rose-600 pt-1 border-t border-gray-100">
                             <span className="font-medium">Failure Reason:</span>
-                            <span className="font-semibold text-right max-w-xs">{event.payload.failureReason}</span>
+                            <span className="font-semibold text-right max-w-xs">
+                                {event.payload.failureReason}
+                            </span>
                         </div>
                     )}
                 </div>

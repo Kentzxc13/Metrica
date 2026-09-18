@@ -4,7 +4,12 @@ export interface AuditLedgerEvent {
     timestamp: string;
     relativeTime: string;
     name: string;
-    category: 'New Subscription' | 'Upgrade & Expansion' | 'Failed Billing' | 'Churn & Cancellation' | 'Audit & Security';
+    category:
+        | 'New Subscription'
+        | 'Upgrade & Expansion'
+        | 'Failed Billing'
+        | 'Churn & Cancellation'
+        | 'Audit & Security';
     customer: string;
     company: string;
     mrrDelta: string;

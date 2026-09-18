@@ -2,9 +2,9 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useDashboard } from '@/context/DashboardContext';
-import { INITIAL_AUDIT_EVENTS } from '@/data/auditEvents';
 import { AuditLedgerEvent } from '@/types/ledger';
 import { AuditEventModal } from '@/components/modals/AuditEventModal';
+import { supabaseBrowser } from '@/lib/supabase-browser';
 import { formatTimeClean, getRelativeTime } from '@/utils/time';
 
 // Module-level flag so it survives client-side page transitions (Ledger -> Dashboard -> Ledger),
@@ -13,6 +13,10 @@ let hasEverAnimatedLedger = false;
 
 export default function EventLedgerPage() {
     const { globalSearchQuery, showActionToast } = useDashboard();
+
+    // --- Ledger data state ---
+    const [auditEvents, setAuditEvents] = useState<AuditLedgerEvent[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
 
     // One-time staggered row animation state across navigation
     const [shouldAnimateRows, setShouldAnimateRows] = useState<boolean>(() => hasEverAnimatedLedger);
@@ -66,23 +70,144 @@ export default function EventLedgerPage() {
         return () => window.clearInterval(timer);
     }, []);
 
+    // Load ledger events and subscribe to live Supabase payment changes
+    useEffect(() => {
+        let isMounted = true;
+
+        const loadLedgerEvents = async (showLoading = false) => {
+            try {
+                if (showLoading) {
+                    setIsLoading(true);
+                }
+
+                const response = await fetch('/api/ledger');
+
+                if (!response.ok) {
+                    throw new Error('Failed to load ledger events');
+                }
+
+                const data = await response.json();
+
+                if (isMounted) {
+                    setAuditEvents(data.events || []);
+                }
+            } catch (error) {
+                console.error('Failed to load ledger events:', error);
+
+                if (isMounted) {
+                    setAuditEvents([]);
+                }
+            } finally {
+                if (showLoading && isMounted) {
+                    setIsLoading(false);
+                }
+            }
+        };
+
+        // Initial ledger load
+        loadLedgerEvents(true);
+
+        // Subscribe to live payment changes
+        const channel = supabaseBrowser
+            .channel('metrica-event-ledger')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'payments',
+                },
+                async (payload) => {
+                    console.log(
+                        '[Ledger Realtime] Payment change received:',
+                        payload
+                    );
+
+                    // Refresh the formatted ledger data after a
+                    // database change is received.
+                    await loadLedgerEvents(false);
+                }
+            )
+            .subscribe((status) => {
+                console.log(
+                    '[Ledger Realtime] Subscription status:',
+                    status
+                );
+            });
+
+        return () => {
+            isMounted = false;
+            supabaseBrowser.removeChannel(channel);
+        };
+    }, []);
+
+    // --- Derived KPI metrics ---
+    const totalEvents = auditEvents.length;
+
+    const deliveredEvents = auditEvents.filter(
+        (event) => event.status === 'Delivered 200 OK'
+    ).length;
+
+    const flaggedEvents = auditEvents.filter(
+        (event) =>
+            event.status === 'Failed 402' ||
+            event.status === 'Pending Retry' ||
+            event.status === 'Refunded'
+    ).length;
+
+    const netMrrVelocity = auditEvents.reduce((total, event) => {
+        const value = Number(
+            event.mrrDelta
+                .replace(/[^0-9.-]/g, '')
+                .replace(/,/g, '')
+        );
+
+        return event.isNegative ? total - Math.abs(value) : total + value;
+    }, 0);
+
+    const formattedNetMrr = `${netMrrVelocity >= 0 ? '+' : '-'}$${Math.abs(
+        netMrrVelocity
+    ).toLocaleString('en-US')}`;
+
+    const handleExportEventJson = (event: AuditLedgerEvent) => {
+        const json = JSON.stringify(event, null, 2);
+
+        const blob = new Blob([json], {
+            type: 'application/json',
+        });
+
+        const url = URL.createObjectURL(blob);
+
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${event.code.replace(/[^a-zA-Z0-9_-]/g, '')}.json`;
+
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        URL.revokeObjectURL(url);
+
+        showActionToast(`${event.code} JSON exported successfully.`);
+    };
+
     const [ledgerCategoryFilter, setLedgerCategoryFilter] = useState<string>('All Events');
     const [isLedgerDropdownOpen, setIsLedgerDropdownOpen] = useState<boolean>(false);
     const [selectedAuditEvent, setSelectedAuditEvent] = useState<AuditLedgerEvent | null>(null);
     const [activeLedgerMenuId, setActiveLedgerMenuId] = useState<string | null>(null);
 
     const ledgerCategories = useMemo(() => {
-        const unique = Array.from(new Set(INITIAL_AUDIT_EVENTS.map(e => e.category)));
+        const unique = Array.from(new Set(auditEvents.map(e => e.category)));
         return ['All Events', ...unique];
-    }, []);
+    }, [auditEvents]);
 
     const getLedgerCategoryCount = (cat: string) => {
-        if (cat === 'All Events') return INITIAL_AUDIT_EVENTS.length;
-        return INITIAL_AUDIT_EVENTS.filter(e => e.category === cat).length;
+        if (cat === 'All Events') return auditEvents.length;
+        return auditEvents.filter(e => e.category === cat).length;
     };
 
     // Filter audit events (driven by Global Search & Category Filter)
-    const filteredAuditEvents = INITIAL_AUDIT_EVENTS.filter(e => {
+    const filteredAuditEvents = auditEvents.filter(e => {
         const matchesSearch = e.name.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
                               e.code.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
                               e.customer.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
@@ -92,6 +217,70 @@ export default function EventLedgerPage() {
         const matchesCategory = ledgerCategoryFilter === 'All Events' || e.category === ledgerCategoryFilter;
         return matchesSearch && matchesCategory;
     });
+
+    const handleExportLedgerCsv = () => {
+        const headers = [
+            'Event ID',
+            'Event Code',
+            'Event Type',
+            'Category',
+            'Timestamp UTC',
+            'Customer',
+            'Company',
+            'MRR Movement',
+            'Gateway',
+            'Status',
+            'Invoice ID',
+            'Verification Hash',
+        ];
+
+        const escapeCsv = (value: unknown) => {
+            const text = String(value ?? '');
+            return `"${text.replace(/"/g, '""')}"`;
+        };
+
+        const rows = filteredAuditEvents.map((event) => [
+            event.id,
+            event.code,
+            event.name,
+            event.category,
+            event.timestamp,
+            event.customer,
+            event.company,
+            event.mrrDelta,
+            event.gateway,
+            event.status,
+            event.payload.invoiceId,
+            event.payload.signature,
+        ]);
+
+        const csv = [
+            headers.map(escapeCsv).join(','),
+            ...rows.map((row) => row.map(escapeCsv).join(',')),
+        ].join('\r\n');
+
+        const blob = new Blob([csv], {
+            type: 'text/csv;charset=utf-8;',
+        });
+
+        const url = URL.createObjectURL(blob);
+
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `metrica-event-ledger-${new Date()
+            .toISOString()
+            .slice(0, 10)}.csv`;
+
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        URL.revokeObjectURL(url);
+
+        showActionToast(
+            `Exported ${filteredAuditEvents.length} ledger events to CSV.`
+        );
+    };
 
     return (
         <>
@@ -105,7 +294,7 @@ export default function EventLedgerPage() {
                 <div className="flex items-center gap-2.5">
                     {/* Export CSV */}
                     <button
-                        onClick={() => showActionToast('Audit Event Ledger CSV exported successfully!')}
+                        onClick={handleExportLedgerCsv}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-semibold transition-colors">
                         <svg className="w-3.5 h-3.5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
@@ -155,7 +344,7 @@ export default function EventLedgerPage() {
                                 <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">Total Events</span>
                             </div>
                             <div className="flex items-baseline gap-1.5">
-                                <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">1,420</span>
+                                <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">{totalEvents}</span>
                                 <span className="text-xs text-gray-400 font-normal">Today</span>
                             </div>
                         </div>
@@ -186,7 +375,7 @@ export default function EventLedgerPage() {
                                 <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">Net MRR Velocity</span>
                             </div>
                             <div className="flex items-baseline gap-1.5">
-                                <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">+$4,250</span>
+                                <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">{formattedNetMrr}</span>
                                 <span className="text-xs text-gray-400 font-normal">Added</span>
                             </div>
                         </div>
@@ -217,7 +406,7 @@ export default function EventLedgerPage() {
                                 <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">Delivered Events</span>
                             </div>
                             <div className="flex items-baseline gap-1.5">
-                                <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">1,418</span>
+                                <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">{deliveredEvents}</span>
                                 <span className="text-xs text-gray-400 font-normal">Delivered</span>
                             </div>
                         </div>
@@ -246,7 +435,7 @@ export default function EventLedgerPage() {
                                 <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">Flagged Events</span>
                             </div>
                             <div className="flex items-baseline gap-1.5">
-                                <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">2</span>
+                                <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">{flaggedEvents}</span>
                                 <span className="text-xs text-gray-400 font-normal">Action Required</span>
                             </div>
                         </div>
@@ -263,7 +452,7 @@ export default function EventLedgerPage() {
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
                             </svg>
-                            <span>2 Involuntary Churn Risks</span>
+                            <span>{flaggedEvents} Involuntary Churn Risks</span>
                         </div>
                         <button className="text-gray-300 hover:text-gray-500" title="Smart Dunning configured">
                             <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
@@ -428,9 +617,36 @@ export default function EventLedgerPage() {
                                                     </button>
 
                                                     <button
-                                                        onClick={() => {
-                                                            showActionToast(`Triggered webhook replay for ${evt.code} (${evt.name})`);
-                                                            setActiveLedgerMenuId(null);
+                                                        onClick={async () => {
+                                                            try {
+                                                                const response = await fetch('/api/ledger/replay', {
+                                                                    method: 'POST',
+                                                                    headers: {
+                                                                        'Content-Type': 'application/json',
+                                                                    },
+                                                                    body: JSON.stringify({
+                                                                        event_id: evt.payload.invoiceId,
+                                                                    }),
+                                                                });
+
+                                                                const data = await response.json();
+
+                                                                if (!response.ok) {
+                                                                    throw new Error(data?.error || 'Replay failed');
+                                                                }
+
+                                                                showActionToast(
+                                                                    `Webhook replay accepted for ${evt.code}. No duplicate payment created.`
+                                                                );
+                                                            } catch (error) {
+                                                                console.error('Webhook replay failed:', error);
+
+                                                                showActionToast(
+                                                                    `Webhook replay failed for ${evt.code}.`
+                                                                );
+                                                            } finally {
+                                                                setActiveLedgerMenuId(null);
+                                                            }
                                                         }}
                                                         className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors">
                                                         <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -443,8 +659,7 @@ export default function EventLedgerPage() {
 
                                                     <button
                                                         onClick={() => {
-                                                            navigator.clipboard?.writeText?.(JSON.stringify(evt, null, 2));
-                                                            showActionToast(`Exported ${evt.code} raw JSON to clipboard.`);
+                                                            handleExportEventJson(evt);
                                                             setActiveLedgerMenuId(null);
                                                         }}
                                                         className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors">
@@ -464,7 +679,7 @@ export default function EventLedgerPage() {
                             {filteredAuditEvents.length === 0 && (
                                 <tr>
                                     <td colSpan={7} className="py-12 text-center text-gray-400">
-                                        No telemetry events match your criteria.
+                                        {isLoading ? 'Loading telemetry events…' : 'No telemetry events match your criteria.'}
                                     </td>
                                 </tr>
                             )}

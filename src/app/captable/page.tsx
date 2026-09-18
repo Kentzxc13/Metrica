@@ -1,17 +1,42 @@
 "use client";
 
-import React, { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useDashboard } from '@/context/DashboardContext';
-import { INITIAL_CAP_TABLE_HOLDINGS } from '@/data/captable';
 import { CapTableHolding } from '@/types/captable';
 import { CapTableInspectorModal } from '@/components/modals/CapTableInspectorModal';
 
 export default function CapTableOwnershipPage() {
     const { globalSearchQuery, showActionToast } = useDashboard();
 
-    const [capTableHoldings] = useState<CapTableHolding[]>(INITIAL_CAP_TABLE_HOLDINGS);
+    const [capTableHoldings, setCapTableHoldings] = useState<CapTableHolding[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [capTableStageFilter, setCapTableStageFilter] = useState<'All' | 'Series A' | 'Seed'>('All');
     const [selectedHoldingForModal, setSelectedHoldingForModal] = useState<CapTableHolding | null>(null);
+
+    useEffect(() => {
+        const loadCapTable = async () => {
+            try {
+                setIsLoading(true);
+
+                const response = await fetch('/api/captable');
+
+                if (!response.ok) {
+                    throw new Error('Failed to load cap table');
+                }
+
+                const data = await response.json();
+
+                setCapTableHoldings(data.holdings || []);
+            } catch (error) {
+                console.error('Failed to load cap table:', error);
+                setCapTableHoldings([]);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        loadCapTable();
+    }, []);
 
     // Filtered holdings (driven by Global Header Search & Stage Filter)
     const filteredCapTableHoldings = capTableHoldings.filter(h => {
@@ -22,6 +47,44 @@ export default function CapTableOwnershipPage() {
         const matchesStage = capTableStageFilter === 'All' || h.stage === capTableStageFilter;
         return matchesSearch && matchesStage;
     });
+
+    const totalInvested = capTableHoldings.reduce(
+        (total, holding) => total + Number(holding.capitalInvested || 0),
+        0
+    );
+
+    const totalFairValue = capTableHoldings.reduce(
+        (total, holding) => total + Number(holding.currentFairValue || 0),
+        0
+    );
+
+    const totalUnrealizedGain = totalFairValue - totalInvested;
+
+    const weightedMoic =
+        totalInvested > 0 ? totalFairValue / totalInvested : 0;
+
+    const weightedIrr =
+        totalInvested > 0
+            ? capTableHoldings.reduce(
+                  (total, holding) =>
+                      total +
+                      Number(holding.irr || 0) *
+                          Number(holding.capitalInvested || 0),
+                  0
+              ) / totalInvested
+            : 0;
+
+    const formatKpiMoney = (value: number) => {
+        if (Math.abs(value) >= 1_000_000) {
+            return '$' + (value / 1_000_000).toFixed(2) + 'M';
+        }
+
+        if (Math.abs(value) >= 1_000) {
+            return '$' + (value / 1_000).toFixed(0) + 'K';
+        }
+
+        return '$' + value.toLocaleString('en-US');
+    };
 
     return (
         <>
@@ -57,7 +120,9 @@ export default function CapTableOwnershipPage() {
                                 <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">Total Invested</span>
                             </div>
                             <div className="flex items-baseline gap-1.5">
-                                <span className="text-2xl font-bold font-mono text-gray-900 tracking-tight">$6.50M</span>
+                                <span className="text-2xl font-bold font-mono text-gray-900 tracking-tight">
+                                    {isLoading ? '—' : formatKpiMoney(totalInvested)}
+                                </span>
                                 <span className="text-xs text-gray-400 font-normal">Deployed</span>
                             </div>
                         </div>
@@ -83,8 +148,12 @@ export default function CapTableOwnershipPage() {
                                 <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">Portfolio Net Value</span>
                             </div>
                             <div className="flex items-baseline gap-1.5">
-                                <span className="text-2xl font-bold font-mono text-gray-900 tracking-tight">$15.24M</span>
-                                <span className="text-xs text-emerald-600 font-medium">+$8.74M</span>
+                                <span className="text-2xl font-bold font-mono text-gray-900 tracking-tight">
+                                    {isLoading ? '—' : formatKpiMoney(totalFairValue)}
+                                </span>
+                                <span className="text-xs text-emerald-600 font-medium">
+                                    {isLoading ? '—' : formatKpiMoney(totalUnrealizedGain)}
+                                </span>
                             </div>
                         </div>
                         <div className="flex items-end gap-1 h-8 pt-1">
@@ -114,7 +183,9 @@ export default function CapTableOwnershipPage() {
                                 <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">Net Portfolio MOIC</span>
                             </div>
                             <div className="flex items-baseline gap-1.5">
-                                <span className="text-2xl font-bold font-mono text-gray-900 tracking-tight">2.34x</span>
+                                <span className="text-2xl font-bold font-mono text-gray-900 tracking-tight">
+                                    {isLoading ? '—' : `${weightedMoic.toFixed(2)}x`}
+                                </span>
                                 <span className="text-xs text-gray-400 font-normal">Multiple</span>
                             </div>
                         </div>
@@ -145,7 +216,9 @@ export default function CapTableOwnershipPage() {
                                 <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">Blended Portfolio IRR</span>
                             </div>
                             <div className="flex items-baseline gap-1.5">
-                                <span className="text-2xl font-bold font-mono text-gray-900 tracking-tight">+36.8%</span>
+                                <span className="text-2xl font-bold font-mono text-gray-900 tracking-tight">
+                                    {isLoading ? '—' : `+${weightedIrr.toFixed(1)}%`}
+                                </span>
                                 <span className="text-xs text-emerald-600 font-normal">Annualized</span>
                             </div>
                         </div>
@@ -217,7 +290,15 @@ export default function CapTableOwnershipPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {filteredCapTableHoldings.map((h) => (
+                            {isLoading && (
+                                <tr>
+                                    <td colSpan={9} className="py-12 text-center text-gray-400">
+                                        Loading cap table...
+                                    </td>
+                                </tr>
+                            )}
+
+                            {!isLoading && filteredCapTableHoldings.map((h) => (
                                 <tr
                                     key={h.id}
                                     onClick={() => setSelectedHoldingForModal(h)}
@@ -301,7 +382,7 @@ export default function CapTableOwnershipPage() {
                                 </tr>
                             ))}
 
-                            {filteredCapTableHoldings.length === 0 && (
+                            {!isLoading && filteredCapTableHoldings.length === 0 && (
                                 <tr>
                                     <td colSpan={9} className="py-12 text-center text-gray-400">
                                         No portfolio ventures match your search criteria.
