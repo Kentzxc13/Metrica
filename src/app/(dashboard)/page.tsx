@@ -10,6 +10,7 @@ import { Transaction } from "@/types/company";
 import { AiScreeningModal } from "@/components/modals/AiScreeningModal";
 import { AddPaymentModal } from "@/components/modals/AddPaymentModal";
 import { getRelativeTime, formatTimeClean } from "@/utils/time";
+import { supabaseBrowser } from "@/lib/supabase-browser";
 
 // Module-level flag so it survives client-side page transitions (Dashboard -> Comparison -> Dashboard),
 // but cleanly resets on page refresh/initial reload so user can test the entrance animation.
@@ -36,8 +37,8 @@ export default function DashboardOverviewPage() {
 
   useEffect(() => {
     let isMounted = true;
-    const loadDashboardData = async () => {
-      setIsDashboardLoading(true);
+    const loadDashboardData = async (showLoading = true) => {
+      if (showLoading) setIsDashboardLoading(true);
       try {
         const res = await fetch(`/api/dashboard?company_id=${encodeURIComponent(currentCompany.id)}`);
         if (res.ok) {
@@ -49,12 +50,33 @@ export default function DashboardOverviewPage() {
       } catch (err) {
         console.warn('Dashboard live metrics fetch error:', err);
       } finally {
-        if (isMounted) setIsDashboardLoading(false);
+        if (isMounted && showLoading) setIsDashboardLoading(false);
       }
     };
-    loadDashboardData();
+
+    loadDashboardData(true);
+
+    // Realtime payment subscription (Dashboard_Live_Connection.md Section 5)
+    const channel = supabaseBrowser
+      .channel(`realtime_payments_${currentCompany.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'payments',
+        },
+        async () => {
+          if (isMounted) {
+            await loadDashboardData(false);
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
       isMounted = false;
+      supabaseBrowser.removeChannel(channel);
     };
   }, [currentCompany.id]);
 

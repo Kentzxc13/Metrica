@@ -7,21 +7,15 @@ type RouteContext = {
     }>;
 };
 
+function isUuid(value: string): boolean {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 export async function PATCH(
     request: NextRequest,
     context: RouteContext
 ) {
     try {
-        if (!supabase) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: 'Supabase client is not initialized',
-                },
-                { status: 500 }
-            );
-        }
-
         const { id } = await context.params;
 
         if (!id) {
@@ -31,6 +25,16 @@ export async function PATCH(
                     error: 'Commitment ID is required',
                 },
                 { status: 400 }
+            );
+        }
+
+        if (!supabase) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: 'Supabase client is not initialized',
+                },
+                { status: 500 }
             );
         }
 
@@ -82,6 +86,21 @@ export async function PATCH(
                         'Invalid status. Use completed, in_progress, or delayed',
                 },
                 { status: 400 }
+            );
+        }
+
+        if (!isUuid(id)) {
+            return NextResponse.json(
+                {
+                    success: true,
+                    message: 'Static or local commitment updated successfully',
+                    commitment: {
+                        id,
+                        status: body.status ?? 'completed',
+                        updatedAt: new Date().toISOString(),
+                    },
+                },
+                { status: 200 }
             );
         }
 

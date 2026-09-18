@@ -3,7 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { useDashboard } from '@/context/DashboardContext';
 import { INITIAL_BOARD_MEETINGS } from '@/data/governance';
-import { BoardMeeting } from '@/types/governance';
+import { BoardMeeting, BoardCommitment } from '@/types/governance';
+import { AddCommitmentModal } from '@/components/modals/AddCommitmentModal';
 
 export default function BoardGovernancePage() {
     const { globalSearchQuery, showActionToast } = useDashboard();
@@ -12,6 +13,8 @@ export default function BoardGovernancePage() {
 
     const [isLoadingCommitments, setIsLoadingCommitments] = useState(true);
     const [selectedMeetingId, setSelectedMeetingId] = useState<string>('bm-2');
+    const [isAddCommitmentOpen, setIsAddCommitmentOpen] = useState(false);
+    const [isGeneratingProbes, setIsGeneratingProbes] = useState(false);
 
     useEffect(() => {
         const loadGovernanceCommitments = async () => {
@@ -130,6 +133,90 @@ export default function BoardGovernancePage() {
                   (completedCommitments / totalCommitments) * 100
               )
             : 0;
+
+    // Interactive Commitment Status Toggle (spec/frontend/Governance_Interactive_Cockpit.md)
+    const handleToggleCommitmentStatus = async (
+        e: React.MouseEvent,
+        commitment: BoardCommitment
+    ) => {
+        e.stopPropagation();
+        const nextStatus: 'completed' | 'in_progress' =
+            commitment.status === 'completed' ? 'in_progress' : 'completed';
+
+        // Optimistic UI state update
+        setBoardMeetings((currentMeetings) =>
+            currentMeetings.map((meeting) => {
+                if (meeting.id !== selectedMeeting.id) return meeting;
+                return {
+                    ...meeting,
+                    priorCommitments: (meeting.priorCommitments || []).map((c) =>
+                        c.id === commitment.id ? { ...c, status: nextStatus } : c
+                    ),
+                };
+            })
+        );
+
+        showActionToast(
+            `Mandate "${commitment.title}" marked as ${
+                nextStatus === 'completed' ? 'Completed (Delivered)' : 'In Review'
+            }`
+        );
+
+        // Persist to backend
+        try {
+            await fetch(`/api/governance/commitments/${commitment.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: nextStatus }),
+            });
+        } catch (err) {
+            console.warn('Commitment status update sync skipped:', err);
+        }
+    };
+
+    // Generate AI Probes Handler (spec/frontend/Governance_Interactive_Cockpit.md)
+    const handleGenerateAIProbes = async () => {
+        try {
+            setIsGeneratingProbes(true);
+            showActionToast('AI analyzing burn rate & equity model for strategic probes...');
+
+            const response = await fetch('/api/governance/generate-probes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    companyName: selectedMeeting.companyName,
+                    agendaTopic: selectedMeeting.agendaTopic,
+                    meetingId: selectedMeeting.id,
+                }),
+            });
+
+            const json = await response.json();
+
+            if (response.ok && json.probes) {
+                setBoardMeetings((currentMeetings) =>
+                    currentMeetings.map((meeting) => {
+                        if (meeting.id !== selectedMeeting.id) return meeting;
+                        return {
+                            ...meeting,
+                            strategicProbes: [
+                                ...json.probes,
+                                ...(meeting.strategicProbes || []),
+                            ],
+                        };
+                    })
+                );
+
+                showActionToast(
+                    `Generated ${json.probes.length} strategic probes for ${selectedMeeting.companyName}!`
+                );
+            }
+        } catch (error) {
+            console.error('Failed to generate AI probes:', error);
+            showActionToast('Failed to generate AI probes.');
+        } finally {
+            setIsGeneratingProbes(false);
+        }
+    };
 
     return (
         <div className="flex flex-col gap-5 pb-8">
@@ -341,12 +428,21 @@ export default function BoardGovernancePage() {
                                     PRIOR BOARD COMMITMENTS
                                 </h3>
                             </div>
-                            <span className="text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200/60 px-2.5 py-1 rounded-md">
-                                {`${completedCommitments} of ${totalCommitments} Delivered (${commitmentDeliveryRate}%)`}
-                            </span>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setIsAddCommitmentOpen(true)}
+                                    className="px-2.5 py-1 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                                    title="Record New Board Commitment"
+                                >
+                                    <span className="text-sm font-bold leading-none">+</span> Add Commitment
+                                </button>
+                                <span className="text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200/60 px-2.5 py-1 rounded-md">
+                                    {`${completedCommitments} of ${totalCommitments} Delivered (${commitmentDeliveryRate}%)`}
+                                </span>
+                            </div>
                         </div>
 
-                        {/* Deliverables List: Scrollable showing 2 commitments */}
+                        {/* Deliverables List: Scrollable showing commitments */}
                         <div className="space-y-2.5 my-3 max-h-[148px] overflow-y-auto pr-1.5 custom-scrollbar">
                             {selectedMeeting.priorCommitments?.map((commitment) => {
                                 const isCompleted = commitment.status === 'completed';
@@ -368,14 +464,19 @@ export default function BoardGovernancePage() {
                                                     {commitment.title}
                                                 </span>
                                             </div>
-                                            <span className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-md shrink-0 ${isCompleted
-                                                ? 'bg-emerald-100/70 text-emerald-800'
-                                                : isInProgress
-                                                    ? 'bg-zinc-200 text-zinc-800'
-                                                    : 'bg-amber-100 text-amber-800'
-                                                }`}>
-                                                {isCompleted ? 'Completed' : isInProgress ? 'In Review' : 'Delayed'}
-                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => handleToggleCommitmentStatus(e, commitment)}
+                                                title="Click to toggle status (Completed / In Review)"
+                                                className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-md shrink-0 cursor-pointer transition-transform active:scale-95 hover:opacity-90 ${isCompleted
+                                                    ? 'bg-emerald-100/70 text-emerald-800 hover:bg-emerald-200'
+                                                    : isInProgress
+                                                        ? 'bg-zinc-200 text-zinc-800 hover:bg-zinc-300'
+                                                        : 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+                                                    }`}
+                                            >
+                                                {isCompleted ? '✓ Completed' : isInProgress ? '● In Review' : '⚠ Delayed'}
+                                            </button>
                                         </div>
                                         <div className="flex items-center justify-between text-xs text-gray-500 pl-4">
                                             <span className="truncate">Lead: {commitment.owner}</span>
@@ -412,9 +513,18 @@ export default function BoardGovernancePage() {
                                     DIRECTOR&apos;S STRATEGIC PROBES
                                 </h3>
                             </div>
-                            <span className="text-xs font-semibold text-gray-600 bg-gray-100 border border-gray-200/80 px-2.5 py-1 rounded-md">
-                                {selectedMeeting.strategicProbes?.length || 2} Inquiries Prepared
-                            </span>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={handleGenerateAIProbes}
+                                    disabled={isGeneratingProbes}
+                                    className="px-2.5 py-1 text-xs font-semibold bg-zinc-900 hover:bg-black text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer"
+                                >
+                                    <span>✨</span> {isGeneratingProbes ? 'Analyzing...' : 'Generate AI Probes'}
+                                </button>
+                                <span className="text-xs font-semibold text-gray-600 bg-gray-100 border border-gray-200/80 px-2.5 py-1 rounded-md">
+                                    {selectedMeeting.strategicProbes?.length || 2} Inquiries Prepared
+                                </span>
+                            </div>
                         </div>
 
                         {/* Probes List: Scrollable showing 1 probe */}
@@ -456,6 +566,30 @@ export default function BoardGovernancePage() {
                     </div>
                 </div>
             </section>
+
+            {/* Add Commitment Modal */}
+            <AddCommitmentModal
+                isOpen={isAddCommitmentOpen}
+                onClose={() => setIsAddCommitmentOpen(false)}
+                meetingId={selectedMeeting.id}
+                companyId={selectedMeeting.companyName}
+                companyName={selectedMeeting.companyName}
+                onCommitmentAdded={(newCommitment) => {
+                    setBoardMeetings((currentMeetings) =>
+                        currentMeetings.map((meeting) => {
+                            if (meeting.id !== selectedMeeting.id) return meeting;
+                            return {
+                                ...meeting,
+                                priorCommitments: [
+                                    newCommitment,
+                                    ...(meeting.priorCommitments || []),
+                                ],
+                            };
+                        })
+                    );
+                }}
+                onShowToast={showActionToast}
+            />
         </div>
     );
 }
