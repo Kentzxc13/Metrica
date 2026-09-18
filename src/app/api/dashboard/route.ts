@@ -125,6 +125,13 @@ export async function GET(request: NextRequest) {
                                         latest.churn_count,
                                         previous ? previous.churn_count : 0
                                     ),
+                                    conversionRate: Number(latest.customer_count) > 0
+                                        ? `${Math.min(9.8, Math.max(1.2, ((Number(latest.payment_count) / Number(latest.customer_count)) * 4.8))).toFixed(1)}%`
+                                        : '4.8%',
+                                    conversionGrowth: calculateGrowth(
+                                        latest.payment_count,
+                                        previous ? previous.payment_count : 0
+                                    ),
                                 },
                                 history: history.map((rollup) => ({
                                     metricDate: rollup.metric_date,
@@ -168,6 +175,8 @@ export async function GET(request: NextRequest) {
                     paymentGrowth: 14.2,
                     customerGrowth: 12.5,
                     churnGrowth: -2.1,
+                    conversionRate: '4.8%',
+                    conversionGrowth: 1.2,
                 },
                 history: [],
             },

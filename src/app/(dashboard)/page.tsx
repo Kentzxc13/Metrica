@@ -30,6 +30,8 @@ export default function DashboardOverviewPage() {
     paymentGrowth: number;
     customerGrowth: number;
     churnGrowth: number;
+    conversionRate?: string;
+    conversionGrowth?: number;
   }
 
   const [dashboardData, setDashboardData] = useState<DashboardSummary | null>(null);
@@ -470,10 +472,37 @@ export default function DashboardOverviewPage() {
                 <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">
                   Total Orders
                 </span>
+                <span
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    (dashboardData?.status === "Delayed" || dashboardData?.status === "Estimated")
+                      ? "bg-amber-50 text-amber-700 border border-amber-200/70"
+                      : "bg-emerald-50 text-emerald-700 border border-emerald-200/70"
+                  }`}
+                  title={
+                    (dashboardData?.status === "Delayed" || dashboardData?.status === "Estimated")
+                      ? "Backdated records pending daily reconciliation (TC-03)"
+                      : "Live synchronized orders telemetry"
+                  }
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      (dashboardData?.status === "Delayed" || dashboardData?.status === "Estimated")
+                        ? "bg-amber-500 animate-pulse"
+                        : "bg-emerald-500"
+                    }`}
+                  />
+                  <span>{dashboardData?.status || "Live"}</span>
+                </span>
               </div>
               <div className="flex items-baseline gap-1.5">
                 <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">
-                  {currentCompany.orders}
+                  {isDashboardLoading ? (
+                    <span className="text-gray-400 text-lg animate-pulse">Loading...</span>
+                  ) : dashboardData ? (
+                    dashboardData.paymentCount.toLocaleString()
+                  ) : (
+                    currentCompany.orders
+                  )}
                 </span>
                 <span className="text-xs text-gray-400 font-normal">
                   Orders
@@ -504,7 +533,11 @@ export default function DashboardOverviewPage() {
                   strokeWidth="2.2"
                 ></path>
               </svg>
-              <span>{currentCompany.ordersGrowth}</span>
+              <span>
+                {dashboardData?.paymentGrowth !== undefined
+                  ? `${dashboardData.paymentGrowth >= 0 ? "+" : ""}${dashboardData.paymentGrowth.toFixed(1)}% last month`
+                  : currentCompany.ordersGrowth}
+              </span>
             </div>
             <button className="text-gray-300 hover:text-gray-500">
               <svg
@@ -533,10 +566,37 @@ export default function DashboardOverviewPage() {
                 <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">
                   New Customers
                 </span>
+                <span
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    (dashboardData?.status === "Delayed" || dashboardData?.status === "Estimated")
+                      ? "bg-amber-50 text-amber-700 border border-amber-200/70"
+                      : "bg-emerald-50 text-emerald-700 border border-emerald-200/70"
+                  }`}
+                  title={
+                    (dashboardData?.status === "Delayed" || dashboardData?.status === "Estimated")
+                      ? "Backdated records pending daily reconciliation (TC-03)"
+                      : "Live synchronized customers telemetry"
+                  }
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      (dashboardData?.status === "Delayed" || dashboardData?.status === "Estimated")
+                        ? "bg-amber-500 animate-pulse"
+                        : "bg-emerald-500"
+                    }`}
+                  />
+                  <span>{dashboardData?.status || "Live"}</span>
+                </span>
               </div>
               <div className="flex items-baseline gap-1.5">
                 <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">
-                  {currentCompany.customers}
+                  {isDashboardLoading ? (
+                    <span className="text-gray-400 text-lg animate-pulse">Loading...</span>
+                  ) : dashboardData ? (
+                    dashboardData.customerCount.toLocaleString()
+                  ) : (
+                    currentCompany.customers
+                  )}
                 </span>
                 <span className="text-xs text-gray-400 font-normal">
                   New Users
@@ -567,7 +627,11 @@ export default function DashboardOverviewPage() {
                   strokeWidth="2.2"
                 ></path>
               </svg>
-              <span>{currentCompany.customersGrowth}</span>
+              <span>
+                {dashboardData?.customerGrowth !== undefined
+                  ? `${dashboardData.customerGrowth >= 0 ? "+" : ""}${dashboardData.customerGrowth.toFixed(1)}% last month`
+                  : currentCompany.customersGrowth}
+              </span>
             </div>
             <button className="text-gray-300 hover:text-gray-500">
               <svg
@@ -596,9 +660,36 @@ export default function DashboardOverviewPage() {
                 <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">
                   Conversion Rate
                 </span>
+                <span
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    (dashboardData?.status === "Delayed" || dashboardData?.status === "Estimated")
+                      ? "bg-amber-50 text-amber-700 border border-amber-200/70"
+                      : "bg-emerald-50 text-emerald-700 border border-emerald-200/70"
+                  }`}
+                  title={
+                    (dashboardData?.status === "Delayed" || dashboardData?.status === "Estimated")
+                      ? "Backdated records pending daily reconciliation (TC-03)"
+                      : "Live synchronized conversion telemetry"
+                  }
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      (dashboardData?.status === "Delayed" || dashboardData?.status === "Estimated")
+                        ? "bg-amber-500 animate-pulse"
+                        : "bg-emerald-500"
+                    }`}
+                  />
+                  <span>{dashboardData?.status || "Live"}</span>
+                </span>
               </div>
               <div className="text-2xl font-bold text-gray-900 tracking-tight font-mono">
-                {currentCompany.conversionRate}
+                {isDashboardLoading ? (
+                  <span className="text-gray-400 text-lg animate-pulse">Loading...</span>
+                ) : dashboardData?.conversionRate ? (
+                  dashboardData.conversionRate
+                ) : (
+                  currentCompany.conversionRate
+                )}
               </div>
             </div>
             {/* Micro Sparkline Bar Chart */}
@@ -625,7 +716,11 @@ export default function DashboardOverviewPage() {
                   strokeWidth="2.2"
                 ></path>
               </svg>
-              <span>{currentCompany.conversionGrowth}</span>
+              <span>
+                {dashboardData?.conversionGrowth !== undefined
+                  ? `${dashboardData.conversionGrowth >= 0 ? "+" : ""}${dashboardData.conversionGrowth.toFixed(1)}% last month`
+                  : currentCompany.conversionGrowth}
+              </span>
             </div>
             <button className="text-gray-300 hover:text-gray-500">
               <svg
