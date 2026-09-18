@@ -54,6 +54,16 @@ export interface Transaction {
     qty?: number;
     unitPrice?: string;
     totalRevenue: string;
+    amount?: number;
     timestamp?: string;
+    payment_timestamp?: string;
     relativeTime?: string;
+    verification_hash?: string | null;
+    raw_payload?: {
+        geo?: string;
+        cardBrand?: string;
+        cardLast4?: string;
+        invoiceId?: string;
+        [key: string]: any;
+    };
 }

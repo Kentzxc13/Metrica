@@ -131,9 +131,12 @@ export async function GET(request: NextRequest) {
                         product: item.product || 'Standard SaaS License',
                         status,
                         totalRevenue: `$${Number(item.amount || 0).toLocaleString()}`,
+                        amount: Number(item.amount || 0),
                         timestamp,
+                        payment_timestamp: item.payment_timestamp,
                         relativeTime: 'Recent',
                         verification_hash: item.verification_hash,
+                        raw_payload: item.raw_payload || {},
                     };
                 });
 

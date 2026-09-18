@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
                         .select('id, company_id, metric_date, revenue, payment_count, customer_count, churn_count, status, created_at, updated_at')
                         .eq('company_id', company.id)
                         .order('metric_date', { ascending: false })
-                        .limit(12);
+                        .limit(60);
 
                     const history = (rollups ?? []) as MetricRollup[];
                     const latest = history[0] ?? null;
