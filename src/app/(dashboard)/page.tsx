@@ -216,28 +216,39 @@ export default function DashboardOverviewPage() {
   const [inspectTx, setInspectTx] = useState<Transaction | null>(null);
   const [activeActionTx, setActiveActionTx] = useState<Transaction | null>(null);
 
-  // Close action popover on outside click
+  // Close action popover and dropdown on outside click
   useEffect(() => {
-    const handleOutsideClick = () => setActiveActionTx(null);
+    const handleOutsideClick = () => {
+      setActiveActionTx(null);
+      setIsPeriodDropdownOpen(false);
+    };
     window.addEventListener("click", handleOutsideClick);
     return () => window.removeEventListener("click", handleOutsideClick);
   }, []);
 
-  // Live Sales Trend Matrix derived directly from Supabase metric_rollups history
-  const liveMonthsData = useMemo(() => {
-    const monthNames = [
-      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-    ];
+  // Filter 1: Dynamic Sales Trend Result reacting to timeframe (Weekly | Monthly | Yearly)
+  const salesTrendResult = useMemo(() => {
+    const baseCompRev =
+      Number(currentCompany.revenue?.replace(/[^0-9]/g, "") || "") ||
+      (currentCompany as unknown as { baseRev?: number }).baseRev ||
+      48000;
 
     // Build map of live rollups grouped by month index (0-11)
-    const monthMap = new Map<number, { revenue: number; paymentCount: number; customerCount: number; latestDate: string }>();
+    const monthMap = new Map<
+      number,
+      { revenue: number; paymentCount: number; customerCount: number; latestDate: string }
+    >();
     if (dashboardData?.history && dashboardData.history.length > 0) {
       for (const h of dashboardData.history) {
         const d = new Date(h.metricDate);
         if (!isNaN(d.getTime())) {
           const mIdx = d.getMonth();
-          const existing = monthMap.get(mIdx) || { revenue: 0, paymentCount: 0, customerCount: 0, latestDate: h.metricDate };
+          const existing = monthMap.get(mIdx) || {
+            revenue: 0,
+            paymentCount: 0,
+            customerCount: 0,
+            latestDate: h.metricDate,
+          };
           monthMap.set(mIdx, {
             revenue: Math.max(existing.revenue, Number(h.revenue || 0)),
             paymentCount: existing.paymentCount + Number(h.paymentCount || 0),
@@ -248,13 +259,139 @@ export default function DashboardOverviewPage() {
       }
     }
 
-    // Determine scaleMax dynamically based on maximum monthly revenue across the year
-    const allMonthlyRevs = Array.from(monthMap.values()).map((v) => v.revenue);
-    const peakMonthlyRev = Math.max(...allMonthlyRevs, 40000);
-    // Round scaleMax up to clean tens of thousands (e.g. 60000, 70000, 80000)
-    const scaleMax = Math.max(60000, Math.ceil(peakMonthlyRev / 10000) * 10000);
+    if (timeframe === "Weekly") {
+      // 12 Weeks representation (Q3 12-week progression)
+      const weekRevs: number[] = [];
+      const variance = [0.91, 1.04, 0.96, 1.14, 0.94, 1.07, 1.02, 1.16, 0.95, 1.09, 1.03, 1.19];
+      const monthlyAvg = baseCompRev;
 
-    return monthNames.map((name, idx) => {
+      for (let w = 0; w < 12; w++) {
+        // Map week to parent month (July = weeks 0-3, Aug = 4-7, Sep = 8-11)
+        const parentMonthIdx = 6 + Math.floor(w / 4);
+        const parentMonth = monthMap.get(parentMonthIdx);
+        const baseWeekRev = parentMonth && parentMonth.revenue > 0
+          ? Math.round(parentMonth.revenue / 4.2)
+          : Math.round(monthlyAvg / 4.2);
+        const wRev = Math.round(baseWeekRev * variance[w]);
+        weekRevs.push(wRev);
+      }
+
+      const peakWeek = Math.max(...weekRevs, 12000);
+      const scaleMax = Math.max(18000, Math.ceil(peakWeek / 3000) * 3000);
+      const totalPeriodRevenue = weekRevs.reduce((a, b) => a + b, 0);
+
+      const items = weekRevs.map((rev, w) => {
+        const weeklyCust = Math.max(25, Math.round(rev / 170));
+        const weeklyNew = Math.max(1, Math.round(weeklyCust * 0.34));
+        const weeklyActive = Math.max(1, weeklyCust - weeklyNew);
+
+        const totalCells = 12;
+        const filledCells = Math.max(2, Math.min(12, Math.round((rev / scaleMax) * totalCells)));
+        const newCount = Math.max(1, Math.min(4, Math.round(filledCells * 0.35)));
+        const activeCount = Math.max(1, filledCells - newCount);
+        const empty = Math.max(0, totalCells - activeCount - newCount);
+
+        return {
+          id: `week-${w + 1}`,
+          name: `W${w + 1}`,
+          label: `Week ${w + 1} (Q3 2026)`,
+          empty,
+          newCount,
+          activeCount,
+          newUser: `+${weeklyNew.toLocaleString()}`,
+          existingUser: `${weeklyActive.toLocaleString()}`,
+          total: `$${rev.toLocaleString()}`,
+        };
+      });
+
+      const step = scaleMax / 6;
+      const ticks = [6, 5, 4, 3, 2, 1, 0].map((m) => {
+        const val = Math.round(step * m);
+        return val >= 1000 ? `${Math.round(val / 1000)}k` : `${val}`;
+      });
+
+      return {
+        items,
+        scaleMax,
+        ticks,
+        totalRevenue: `$${totalPeriodRevenue.toLocaleString()}`,
+      };
+    }
+
+    if (timeframe === "Yearly") {
+      // 6-Year Historical Performance (2021 to 2026)
+      const years = ["2021", "2022", "2023", "2024", "2025", "2026"];
+      // Compute 2026 full annual estimate from monthly rollups
+      let annual2026 = 0;
+      for (let m = 0; m < 12; m++) {
+        const r = monthMap.get(m);
+        annual2026 += r && r.revenue > 0 ? r.revenue : Math.round(baseCompRev * 1.05);
+      }
+
+      const yearGrowthFactors = [0.20, 0.32, 0.48, 0.65, 0.82, 1.0];
+      const yearRevs = yearGrowthFactors.map((factor) => Math.round(annual2026 * factor));
+      const peakYear = Math.max(...yearRevs, 400000);
+      const scaleMax = Math.max(500000, Math.ceil(peakYear / 100000) * 100000);
+      const totalPeriodRevenue = yearRevs.reduce((a, b) => a + b, 0);
+
+      const items = years.map((year, idx) => {
+        const rev = yearRevs[idx];
+        const annualCust = Math.max(150, Math.round(rev / 190));
+        const annualNew = Math.max(10, Math.round(annualCust * 0.38));
+        const annualActive = Math.max(10, annualCust - annualNew);
+
+        const totalCells = 12;
+        const filledCells = Math.max(2, Math.min(12, Math.round((rev / scaleMax) * totalCells)));
+        const newCount = Math.max(1, Math.min(4, Math.round(filledCells * 0.35)));
+        const activeCount = Math.max(1, filledCells - newCount);
+        const empty = Math.max(0, totalCells - activeCount - newCount);
+
+        return {
+          id: `year-${year}`,
+          name: year,
+          label: `Fiscal Year ${year}`,
+          empty,
+          newCount,
+          activeCount,
+          newUser: `+${annualNew.toLocaleString()}`,
+          existingUser: `${annualActive.toLocaleString()}`,
+          total: `$${rev.toLocaleString()}`,
+        };
+      });
+
+      const step = scaleMax / 6;
+      const ticks = [6, 5, 4, 3, 2, 1, 0].map((m) => {
+        const val = Math.round(step * m);
+        if (val >= 1000000) return `${(val / 1000000).toFixed(1).replace(/\.0$/, "")}M`;
+        return val >= 1000 ? `${Math.round(val / 1000)}k` : `${val}`;
+      });
+
+      return {
+        items,
+        scaleMax,
+        ticks,
+        totalRevenue: `$${totalPeriodRevenue.toLocaleString()}`,
+      };
+    }
+
+    // Default: "Monthly" (12 months of 2026)
+    const monthNames = [
+      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ];
+
+    const allMonthlyRevs = monthNames.map((_, idx) => {
+      const live = monthMap.get(idx);
+      if (live && live.revenue > 0) return live.revenue;
+      const fallbackTotal = MONTHS_DATA[idx]?.total?.replace(/[^0-9]/g, "");
+      return fallbackTotal ? Number(fallbackTotal) : Math.round(baseCompRev * (0.85 + idx * 0.04));
+    });
+
+    const peakMonthlyRev = Math.max(...allMonthlyRevs, 40000);
+    const scaleMax = Math.max(60000, Math.ceil(peakMonthlyRev / 10000) * 10000);
+    const totalPeriodRevenue = allMonthlyRevs.reduce((a, b) => a + b, 0);
+
+    const items = monthNames.map((name, idx) => {
       const fallback = MONTHS_DATA[idx] || {
         name,
         label: `${name} 2026`,
@@ -267,18 +404,17 @@ export default function DashboardOverviewPage() {
       };
 
       const live = monthMap.get(idx);
-      const totalRev = live && live.revenue > 0 ? live.revenue : Number(fallback.total?.replace(/[^0-9]/g, "") || 25000);
-      const totalCust = (live && live.customerCount > 0) ? live.customerCount : Math.max(40, Math.round(totalRev / 250));
+      const totalRev = allMonthlyRevs[idx];
+      const totalCust =
+        live && live.customerCount > 0
+          ? live.customerCount
+          : Math.max(40, Math.round(totalRev / 250));
 
       const newCust = Math.max(1, Math.round(totalCust * 0.32));
       const activeCust = Math.max(1, totalCust - newCust);
 
-      // Total 12 vertical discrete cells
       const totalCells = 12;
-      // Filled cells directly proportional to revenue vs scaleMax (giving dynamic height curves)
       const filledCells = Math.max(2, Math.min(12, Math.round((totalRev / scaleMax) * totalCells)));
-
-      // Distribute filled cells between active and new
       const newCount = Math.max(1, Math.min(4, Math.round(filledCells * 0.35)));
       const activeCount = Math.max(1, filledCells - newCount);
       const empty = Math.max(0, totalCells - activeCount - newCount);
@@ -295,55 +431,160 @@ export default function DashboardOverviewPage() {
         total: `$${totalRev.toLocaleString()}`,
       };
     });
-  }, [dashboardData?.history]);
 
-  // Dynamic 11-bar Revenue Breakdown needle graph derived from live transactions & rollups
-  const dynamicRevenueBars = useMemo(() => {
-    const days = [1, 3, 5, 7, 9, 11, 13, 15, 16, 17, 18];
-    // Gather day revenues
-    const dayDataList = days.map((d) => {
-      const targetDateStr = `2026-09-${String(d).padStart(2, "0")}`;
-      const matchingRollup = dashboardData?.history?.find(
-        (h) => h.metricDate.startsWith(targetDateStr)
-      );
-      const matchingTxs = transactions.filter((t) => {
-        if (!t.payment_timestamp) return false;
-        return t.payment_timestamp.startsWith(targetDateStr);
-      });
-      const txSum = matchingTxs.reduce((sum, t) => sum + (t.amount || 0), 0);
-      // Clean, realistic day revenue
-      let dayRev = txSum > 0 ? txSum : (matchingRollup?.revenue ? Math.round(matchingRollup.revenue / 28) : 0);
-      if (!dayRev || dayRev < 500) {
-        dayRev = Math.round(1800 + ((d * 791) % 4400));
-      }
-      return { d, dayRev };
+    const step = scaleMax / 6;
+    const ticks = [6, 5, 4, 3, 2, 1, 0].map((m) => {
+      const val = Math.round(step * m);
+      return val >= 1000 ? `${Math.round(val / 1000)}k` : `${val}`;
     });
 
-    const revValues = dayDataList.map((x) => x.dayRev);
-    const peakDay = Math.max(...revValues, 10000);
+    return {
+      items,
+      scaleMax,
+      ticks,
+      totalRevenue: `$${totalPeriodRevenue.toLocaleString()}`,
+    };
+  }, [timeframe, dashboardData?.history, currentCompany]);
 
-    return dayDataList.map(({ d, dayRev }, i) => {
-      const expansionNum = Math.round(dayRev * 0.32);
-      const baseNum = Math.max(0, dayRev - expansionNum);
+  // Filter 2: Dynamic Revenue Breakdown Result reacting to selectedCategoryPeriod
+  const revenueBreakdownResult = useMemo(() => {
+    const baseCompRev =
+      Number(currentCompany.revenue?.replace(/[^0-9]/g, "") || "") ||
+      (currentCompany as unknown as { baseRev?: number }).baseRev ||
+      54000;
 
-      // Proportional pixel height out of 110px max height
-      const totalHeightPx = Math.max(20, Math.min(110, Math.round((Math.min(dayRev, peakDay) / peakDay) * 110)));
+    // Find monthly rollups from database history
+    const getMonthRollup = (mIdx: number) => {
+      return dashboardData?.history?.find((h) => {
+        const d = new Date(h.metricDate);
+        return d.getMonth() === mIdx;
+      });
+    };
+
+    const augRollup = getMonthRollup(7);
+    const sepRollup = getMonthRollup(8);
+    const julRollup = getMonthRollup(6);
+
+    let totalCategoryRevenue = 54798;
+    let dateRange = { start: "1 AUG", end: "31 AUG 2026" };
+    let points: Array<{ label: string; amount: number }> = [];
+
+    if (selectedCategoryPeriod === "Last Month") {
+      // Full August 2026 performance
+      totalCategoryRevenue = augRollup && augRollup.revenue > 0 ? augRollup.revenue : 54798;
+      dateRange = { start: "1 AUG", end: "31 AUG 2026" };
+      const days = [1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31];
+      points = days.map((d) => {
+        const dayRev = Math.round(
+          (totalCategoryRevenue / 31) * (0.86 + (((d * 19) % 28) / 100))
+        );
+        return { label: `Aug ${d}`, amount: dayRev };
+      });
+    } else if (selectedCategoryPeriod === "This Month (MTD)") {
+      // September 1 - 18, 2026
+      const fullSepRev = sepRollup && sepRollup.revenue > 0 ? sepRollup.revenue : Math.round(baseCompRev * 1.1);
+      totalCategoryRevenue = Math.round(fullSepRev * (18 / 30));
+      dateRange = { start: "1 SEP", end: "18 SEP 2026" };
+      const days = [1, 3, 5, 7, 9, 11, 13, 15, 16, 17, 18];
+      points = days.map((d) => {
+        const targetDateStr = `2026-09-${String(d).padStart(2, "0")}`;
+        const matchingTxs = transactions.filter(
+          (t) => t.payment_timestamp && t.payment_timestamp.startsWith(targetDateStr)
+        );
+        const txSum = matchingTxs.reduce((sum, t) => sum + (t.amount || 0), 0);
+        let dayRev = txSum > 0 ? txSum : Math.round((totalCategoryRevenue / 18) * (0.84 + (((d * 23) % 32) / 100)));
+        return { label: `Sep ${d}`, amount: dayRev };
+      });
+    } else if (selectedCategoryPeriod === "Last 30 Days") {
+      // 30 Days rolling window (Aug 20 - Sep 18)
+      totalCategoryRevenue = Math.round((baseCompRev || 54000) * 1.08);
+      dateRange = { start: "20 AUG", end: "18 SEP 2026" };
+      const dates = [
+        "Aug 20", "Aug 23", "Aug 26", "Aug 29",
+        "Sep 1", "Sep 4", "Sep 7", "Sep 10",
+        "Sep 13", "Sep 16", "Sep 18",
+      ];
+      points = dates.map((label, idx) => {
+        const dayRev = Math.round(
+          (totalCategoryRevenue / 30) * 2.7 * (0.88 + (((idx * 17) % 25) / 100))
+        );
+        return { label, amount: dayRev };
+      });
+    } else if (selectedCategoryPeriod === "This Quarter (Q3)") {
+      // Q3 (Jul, Aug, Sep MTD)
+      const julRev = julRollup?.revenue || Math.round(baseCompRev * 0.95);
+      const augRev = augRollup?.revenue || 54798;
+      const sepRev = sepRollup ? Math.round(sepRollup.revenue * 0.6) : Math.round(baseCompRev * 0.65);
+      totalCategoryRevenue = Math.round(julRev + augRev + sepRev);
+      dateRange = { start: "1 JUL", end: "18 SEP 2026" };
+      const dates = [
+        "Jul 5", "Jul 15", "Jul 25", "Aug 5",
+        "Aug 15", "Aug 25", "Sep 1", "Sep 6",
+        "Sep 11", "Sep 15", "Sep 18",
+      ];
+      points = dates.map((label, idx) => {
+        const intervalRev = Math.round(
+          (totalCategoryRevenue / 11) * (0.85 + (((idx * 19) % 30) / 100))
+        );
+        return { label, amount: intervalRev };
+      });
+    } else {
+      // Year to Date (YTD: Jan 1 - Sep 18)
+      let ytdSum = 0;
+      if (dashboardData?.history && dashboardData.history.length > 0) {
+        for (const h of dashboardData.history) {
+          const d = new Date(h.metricDate);
+          if (d.getMonth() <= 8) {
+            ytdSum += Number(h.revenue || 0);
+          }
+        }
+      }
+      totalCategoryRevenue = ytdSum > 0 ? Math.round(ytdSum) : Math.round(baseCompRev * 8.8);
+      dateRange = { start: "1 JAN", end: "18 SEP 2026" };
+      const dates = [
+        "Jan 31", "Feb 28", "Mar 31", "Apr 30",
+        "May 31", "Jun 30", "Jul 31", "Aug 15",
+        "Aug 31", "Sep 10", "Sep 18",
+      ];
+      points = dates.map((label, idx) => {
+        const intervalRev = Math.round(
+          (totalCategoryRevenue / 11) * (0.82 + (((idx * 21) % 36) / 100))
+        );
+        return { label, amount: intervalRev };
+      });
+    }
+
+    const peakVal = Math.max(...points.map((p) => p.amount), 1000);
+    const formatCurrency = (val: number) => `$${val.toLocaleString()}`;
+
+    const bars = points.map((p, i) => {
+      const expansionNum = Math.round(p.amount * 0.32);
+      const baseNum = Math.max(0, p.amount - expansionNum);
+
+      const totalHeightPx = Math.max(
+        20,
+        Math.min(110, Math.round((p.amount / peakVal) * 110))
+      );
       const expansionPx = Math.max(6, Math.round(totalHeightPx * 0.32));
       const basePx = Math.max(10, totalHeightPx - expansionPx);
 
-      const formatCurrency = (val: number) => `$${val.toLocaleString()}`;
-
       return {
         id: i + 1,
-        date: `Sep ${d}`,
+        date: p.label,
         topPx: expansionPx,
         botPx: basePx,
         expansion: formatCurrency(expansionNum),
         base: formatCurrency(baseNum),
-        total: formatCurrency(dayRev),
+        total: formatCurrency(p.amount),
       };
     });
-  }, [dashboardData?.history, transactions]);
+
+    return {
+      totalCategoryRevenue,
+      dateRange,
+      bars,
+    };
+  }, [selectedCategoryPeriod, dashboardData?.history, currentCompany, transactions]);
 
   // Table search & pagination & selection
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -951,14 +1192,16 @@ export default function DashboardOverviewPage() {
             <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-4">
                 <div className="text-xs text-gray-400">
-                  Total Revenue:{" "}
+                  {timeframe === "Weekly"
+                    ? "12-Week Revenue:"
+                    : timeframe === "Yearly"
+                    ? "All-Time Revenue:"
+                    : "Total Revenue:"}{" "}
                   <span className="text-lg font-bold text-gray-900 ml-1 font-mono">
                     {isDashboardLoading ? (
                       "Loading..."
-                    ) : dashboardData ? (
-                      `$${dashboardData.revenue.toLocaleString()}`
                     ) : (
-                      currentCompany.revenue
+                      salesTrendResult.totalRevenue
                     )}
                   </span>
                 </div>
@@ -978,8 +1221,11 @@ export default function DashboardOverviewPage() {
                 {(["Weekly", "Monthly", "Yearly"] as const).map((t) => (
                   <button
                     key={t}
-                    onClick={() => setTimeframe(t)}
-                    className={`px-2.5 py-1 rounded-lg transition-all ${
+                    onClick={() => {
+                      setTimeframe(t);
+                      showActionToast(`Sales trend granularity switched to ${t}`);
+                    }}
+                    className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
                       timeframe === t
                         ? "bg-white text-black font-semibold shadow-xs"
                         : "hover:text-black"
@@ -996,33 +1242,28 @@ export default function DashboardOverviewPage() {
           <div className="relative mt-6 pt-4 pb-2 border-t border-dashed border-gray-100">
             {/* Background Scale ticks */}
             <div className="absolute inset-x-0 top-4 bottom-8 flex flex-col justify-between pointer-events-none text-[10px] text-gray-300 font-mono">
-              <div className="border-b border-gray-100 border-dashed pb-0.5">
-                60k
-              </div>
-              <div className="border-b border-gray-100 border-dashed pb-0.5">
-                50k
-              </div>
-              <div className="border-b border-gray-100 border-dashed pb-0.5">
-                40k
-              </div>
-              <div className="border-b border-gray-100 border-dashed pb-0.5">
-                30k
-              </div>
-              <div className="border-b border-gray-100 border-dashed pb-0.5">
-                20k
-              </div>
-              <div className="border-b border-gray-100 border-dashed pb-0.5">
-                10k
-              </div>
-              <div className="pb-0.5">0k</div>
+              {salesTrendResult.ticks.map((t, idx) => (
+                <div
+                  key={`tick-${idx}`}
+                  className={
+                    idx === salesTrendResult.ticks.length - 1
+                      ? "pb-0.5"
+                      : "border-b border-gray-100 border-dashed pb-0.5"
+                  }
+                >
+                  {t}
+                </div>
+              ))}
             </div>
 
             {/* Chart Columns Flow with Dynamic Hover Effect */}
             <div
               onMouseLeave={() => setHoveredMonth(null)}
-              className="relative pl-7 pr-2 flex justify-between items-end h-56 pt-2"
+              className={`relative pl-7 pr-2 flex items-end h-56 pt-2 ${
+                timeframe === "Yearly" ? "justify-around" : "justify-between"
+              }`}
             >
-              {liveMonthsData.map((m, idx) => {
+              {salesTrendResult.items.map((m, idx) => {
                 const uniqueKey = m.id || `${m.name}-${idx}`;
                 const isHovered = hoveredMonth === uniqueKey;
                 return (
@@ -1043,7 +1284,7 @@ export default function DashboardOverviewPage() {
                         className={`absolute bottom-full mb-3.5 ${
                           idx <= 1
                             ? "left-0"
-                            : idx >= 10
+                            : idx >= salesTrendResult.items.length - 2
                             ? "right-0"
                             : "left-1/2 -translate-x-1/2"
                         } z-30 bg-white/95 backdrop-blur-md border border-gray-200/90 rounded-2xl p-3.5 shadow-floating text-left min-w-[190px] w-max pointer-events-none select-none transition-all`}
@@ -1166,14 +1407,17 @@ export default function DashboardOverviewPage() {
                   Revenue by Category
                 </span>
                 <span className="text-xl font-bold text-gray-900 font-mono">
-                  {currentCompany.categoryRevenue}
+                  ${revenueBreakdownResult.totalCategoryRevenue.toLocaleString()}
                 </span>
               </div>
               {/* Sub-date dropdown */}
               <div className="relative">
                 <button
-                  onClick={() => setIsPeriodDropdownOpen(!isPeriodDropdownOpen)}
-                  className="flex items-center gap-1 text-xs text-gray-500 bg-gray-50 hover:bg-gray-100 border border-gray-200 px-2.5 py-1 rounded-xl transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsPeriodDropdownOpen(!isPeriodDropdownOpen);
+                  }}
+                  className="flex items-center gap-1 text-xs text-gray-500 bg-gray-50 hover:bg-gray-100 border border-gray-200 px-2.5 py-1 rounded-xl transition-colors cursor-pointer"
                 >
                   <svg
                     className="w-3.5 h-3.5 text-gray-400"
@@ -1204,7 +1448,10 @@ export default function DashboardOverviewPage() {
                   </svg>
                 </button>
                 {isPeriodDropdownOpen && (
-                  <div className="absolute top-full right-0 mt-1 z-30 bg-white border border-gray-200 rounded-xl shadow-floating p-1 min-w-[130px]">
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    className="absolute top-full right-0 mt-1 z-30 bg-white border border-gray-200 rounded-xl shadow-floating p-1 min-w-[140px] animate-in fade-in zoom-in-95"
+                  >
                     {[
                       "Last 30 Days",
                       "This Month (MTD)",
@@ -1219,7 +1466,7 @@ export default function DashboardOverviewPage() {
                           setIsPeriodDropdownOpen(false);
                           showActionToast(`Revenue breakdown filtered to ${p}`);
                         }}
-                        className={`w-full text-left px-2.5 py-1 text-xs rounded-lg transition-colors ${
+                        className={`w-full text-left px-2.5 py-1 text-xs rounded-lg transition-colors cursor-pointer ${
                           selectedCategoryPeriod === p
                             ? "bg-gray-100 font-semibold text-black"
                             : "text-gray-600 hover:bg-gray-50"
@@ -1288,7 +1535,7 @@ export default function DashboardOverviewPage() {
               onMouseLeave={() => setHoveredRevenueBar(null)}
               className="relative flex items-end justify-between h-44 px-2"
             >
-              {dynamicRevenueBars.map((bar, idx) => {
+              {revenueBreakdownResult.bars.map((bar, idx) => {
                 const isHovered = hoveredRevenueBar === bar.id;
                 return (
                   <div
@@ -1336,19 +1583,23 @@ export default function DashboardOverviewPage() {
 
                     <div
                       style={{ height: `${bar.topPx}px` }}
-                      className={`w-1.5 bg-gray-200 rounded-t-sm transition-all duration-150 ${isHovered ? "bg-gray-400 scale-x-125" : "group-hover:bg-gray-300"}`}
+                      className={`w-1.5 bg-gray-200 rounded-t-sm transition-all duration-300 ${
+                        isHovered ? "bg-gray-400 scale-x-125" : "group-hover:bg-gray-300"
+                      }`}
                     ></div>
                     <div
                       style={{ height: `${bar.botPx}px` }}
-                      className={`w-1.5 bg-black rounded-b-sm transition-all duration-150 ${isHovered ? "bg-black scale-x-125 ring-1 ring-black" : ""}`}
+                      className={`w-1.5 bg-black rounded-b-sm transition-all duration-300 ${
+                        isHovered ? "bg-black scale-x-125 ring-1 ring-black" : ""
+                      }`}
                     ></div>
                   </div>
                 );
               })}
             </div>
             <div className="mt-2 flex items-center justify-between text-[10px] text-gray-400 font-mono">
-              <span>1 SEP</span>
-              <span>18 SEP 2026</span>
+              <span>{revenueBreakdownResult.dateRange.start}</span>
+              <span>{revenueBreakdownResult.dateRange.end}</span>
             </div>
           </div>
         </div>
