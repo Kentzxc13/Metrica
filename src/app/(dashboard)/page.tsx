@@ -249,16 +249,10 @@ export default function DashboardOverviewPage() {
             customerCount: 0,
             latestDate: h.metricDate,
           };
-          // Defensive clamp: protect against any test spikes > 120k for monthly aggregation
-          const rawRev = Number(h.revenue || 0);
-          const safeRev = rawRev > 120000 ? Math.round(baseCompRev * 1.05) : rawRev;
-          const rawCust = Number(h.customerCount || 0);
-          const safeCust = rawCust > 10 ? rawCust : Math.max(120, Math.round(safeRev / 260));
-
           monthMap.set(mIdx, {
-            revenue: Math.max(existing.revenue, safeRev),
+            revenue: Math.max(existing.revenue, Number(h.revenue || 0)),
             paymentCount: existing.paymentCount + Number(h.paymentCount || 0),
-            customerCount: Math.max(existing.customerCount, safeCust),
+            customerCount: Math.max(existing.customerCount, Number(h.customerCount || 0)),
             latestDate: h.metricDate,
           });
         }
@@ -287,28 +281,24 @@ export default function DashboardOverviewPage() {
       const totalPeriodRevenue = weekRevs.reduce((a, b) => a + b, 0);
 
       const items = weekRevs.map((rev, w) => {
-        const weeklyCust = Math.max(30, Math.round(rev / 190));
-        const weeklyNew = Math.max(8, Math.round(weeklyCust * 0.34));
-        const weeklyActive = Math.max(15, weeklyCust - weeklyNew);
-
-        // 3-bar heights
-        const peakWeekCust = 65;
-        const newHeightPx = Math.max(12, Math.min(100, Math.round((weeklyNew / (peakWeekCust * 0.45)) * 95)));
-        const activeHeightPx = Math.max(20, Math.min(135, Math.round((weeklyActive / peakWeekCust) * 135)));
+        const weeklyCust = Math.max(25, Math.round(rev / 170));
+        const weeklyNew = Math.max(1, Math.round(weeklyCust * 0.34));
+        const weeklyActive = Math.max(1, weeklyCust - weeklyNew);
 
         const totalCells = 12;
         const filledCells = Math.max(2, Math.min(12, Math.round((rev / scaleMax) * totalCells)));
-        const emptyCells = Math.max(0, totalCells - filledCells);
+        const newCount = Math.max(1, Math.min(4, Math.round(filledCells * 0.35)));
+        const activeCount = Math.max(1, filledCells - newCount);
+        const empty = Math.max(0, totalCells - activeCount - newCount);
 
         return {
           id: `week-${w + 1}`,
           name: `W${w + 1}`,
           label: `Week ${w + 1} (Q3 2026)`,
-          newHeightPx,
-          activeHeightPx,
-          filledCells,
-          emptyCells,
-          newUser: `${weeklyNew.toLocaleString()}`,
+          empty,
+          newCount,
+          activeCount,
+          newUser: `+${weeklyNew.toLocaleString()}`,
           existingUser: `${weeklyActive.toLocaleString()}`,
           total: `$${rev.toLocaleString()}`,
         };
@@ -346,28 +336,24 @@ export default function DashboardOverviewPage() {
 
       const items = years.map((year, idx) => {
         const rev = yearRevs[idx];
-        const annualCust = Math.max(200, Math.round(rev / 200));
-        const annualNew = Math.max(30, Math.round(annualCust * 0.36));
-        const annualActive = Math.max(80, annualCust - annualNew);
-
-        // 3-bar heights
-        const peakYearCust = 2500;
-        const newHeightPx = Math.max(12, Math.min(100, Math.round((annualNew / (peakYearCust * 0.45)) * 95)));
-        const activeHeightPx = Math.max(20, Math.min(135, Math.round((annualActive / peakYearCust) * 135)));
+        const annualCust = Math.max(150, Math.round(rev / 190));
+        const annualNew = Math.max(10, Math.round(annualCust * 0.38));
+        const annualActive = Math.max(10, annualCust - annualNew);
 
         const totalCells = 12;
         const filledCells = Math.max(2, Math.min(12, Math.round((rev / scaleMax) * totalCells)));
-        const emptyCells = Math.max(0, totalCells - filledCells);
+        const newCount = Math.max(1, Math.min(4, Math.round(filledCells * 0.35)));
+        const activeCount = Math.max(1, filledCells - newCount);
+        const empty = Math.max(0, totalCells - activeCount - newCount);
 
         return {
           id: `year-${year}`,
           name: year,
           label: `Fiscal Year ${year}`,
-          newHeightPx,
-          activeHeightPx,
-          filledCells,
-          emptyCells,
-          newUser: `${annualNew.toLocaleString()}`,
+          empty,
+          newCount,
+          activeCount,
+          newUser: `+${annualNew.toLocaleString()}`,
           existingUser: `${annualActive.toLocaleString()}`,
           total: `$${rev.toLocaleString()}`,
         };
@@ -406,34 +392,41 @@ export default function DashboardOverviewPage() {
     const totalPeriodRevenue = allMonthlyRevs.reduce((a, b) => a + b, 0);
 
     const items = monthNames.map((name, idx) => {
+      const fallback = MONTHS_DATA[idx] || {
+        name,
+        label: `${name} 2026`,
+        empty: 6,
+        newCount: 3,
+        activeCount: 3,
+        newUser: "120 users",
+        existingUser: "280 users",
+        total: "$25,000",
+      };
+
       const live = monthMap.get(idx);
       const totalRev = allMonthlyRevs[idx];
       const totalCust =
         live && live.customerCount > 0
           ? live.customerCount
-          : Math.max(120, Math.round(totalRev / 250));
+          : Math.max(40, Math.round(totalRev / 250));
 
-      const newCust = Math.max(15, Math.round(totalCust * 0.32));
-      const activeCust = Math.max(30, totalCust - newCust);
-
-      // 3-bar heights for cluster
-      const peakCust = 220;
-      const newHeightPx = Math.max(12, Math.min(100, Math.round((newCust / (peakCust * 0.45)) * 95)));
-      const activeHeightPx = Math.max(20, Math.min(135, Math.round((activeCust / peakCust) * 135)));
+      const newCust = Math.max(1, Math.round(totalCust * 0.32));
+      const activeCust = Math.max(1, totalCust - newCust);
 
       const totalCells = 12;
       const filledCells = Math.max(2, Math.min(12, Math.round((totalRev / scaleMax) * totalCells)));
-      const emptyCells = Math.max(0, totalCells - filledCells);
+      const newCount = Math.max(1, Math.min(4, Math.round(filledCells * 0.35)));
+      const activeCount = Math.max(1, filledCells - newCount);
+      const empty = Math.max(0, totalCells - activeCount - newCount);
 
       return {
         id: `month-${name}-${idx}`,
         name: name.toUpperCase(),
         label: `${name} 2026`,
-        newHeightPx,
-        activeHeightPx,
-        filledCells,
-        emptyCells,
-        newUser: `${newCust.toLocaleString()}`,
+        empty,
+        newCount,
+        activeCount,
+        newUser: `+${newCust.toLocaleString()}`,
         existingUser: `${activeCust.toLocaleString()}`,
         total: `$${totalRev.toLocaleString()}`,
       };
@@ -1212,18 +1205,14 @@ export default function DashboardOverviewPage() {
                     )}
                   </span>
                 </div>
-                <div className="flex items-center gap-3.5 text-xs text-gray-500 font-medium">
+                <div className="flex items-center gap-3 text-xs text-gray-500 font-medium">
                   <span className="inline-flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-[#94a3b8]"></span>
-                    <span>New User</span>
+                    <span className="w-2 h-2 rounded-full border border-gray-400"></span>{" "}
+                    New User
                   </span>
                   <span className="inline-flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-black"></span>
-                    <span>Existing User</span>
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <span className="w-2.5 h-2 rounded-[2px] bg-gray-900"></span>
-                    <span>Revenue</span>
+                    <span className="w-2 h-2 rounded-full bg-black"></span>{" "}
+                    Existing User
                   </span>
                 </div>
               </div>
@@ -1337,43 +1326,26 @@ export default function DashboardOverviewPage() {
                       </div>
                     )}
 
-                    {/* 3 Bars Cluster: New Users | Existing Users | Total Revenue Matrix */}
-                    <div className="flex items-end gap-1 relative z-10 h-44 pb-1">
-                      {/* Bar 1: New Users */}
-                      <div
-                        style={{ height: `${m.newHeightPx}px` }}
-                        className={`w-1.5 rounded-t-sm transition-all duration-300 ${
-                          isHovered ? "bg-[#64748b] scale-y-105" : "bg-[#94a3b8]"
-                        }`}
-                        title={`New Users: ${m.newUser}`}
-                      />
-
-                      {/* Bar 2: Existing Users */}
-                      <div
-                        style={{ height: `${m.activeHeightPx}px` }}
-                        className={`w-1.5 rounded-t-sm transition-all duration-300 ${
-                          isHovered ? "bg-black scale-y-105 ring-1 ring-black" : "bg-black"
-                        }`}
-                        title={`Active Users: ${m.existingUser}`}
-                      />
-
-                      {/* Bar 3: Revenue Discrete Matrix Column */}
-                      <div className="matrix-grid flex flex-col gap-0.5" title={`Revenue: ${m.total}`}>
-                        {Array.from({ length: m.emptyCells }).map((_, i) => (
-                          <div
-                            key={`emp-${i}`}
-                            className="matrix-cell matrix-cell-empty"
-                          />
-                        ))}
-                        {Array.from({ length: m.filledCells }).map((_, i) => (
-                          <div
-                            key={`fill-${i}`}
-                            className={`matrix-cell ${
-                              isHovered ? "bg-gray-900 scale-105" : "bg-gray-800"
-                            }`}
-                          />
-                        ))}
-                      </div>
+                    {/* 12-cell discrete column grid */}
+                    <div className="matrix-grid relative z-10">
+                      {Array.from({ length: m.empty }).map((_, i) => (
+                        <div
+                          key={`empty-${i}`}
+                          className="matrix-cell matrix-cell-empty"
+                        ></div>
+                      ))}
+                      {Array.from({ length: m.newCount }).map((_, i) => (
+                        <div
+                          key={`new-${i}`}
+                          className="matrix-cell matrix-cell-new"
+                        ></div>
+                      ))}
+                      {Array.from({ length: m.activeCount }).map((_, i) => (
+                        <div
+                          key={`active-${i}`}
+                          className="matrix-cell matrix-cell-active"
+                        ></div>
+                      ))}
                     </div>
 
                     {/* Month Label */}
