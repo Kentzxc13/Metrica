@@ -231,21 +231,28 @@ export default function DashboardOverviewPage() {
     ];
 
     // Build map of live rollups grouped by month index (0-11)
-    const monthMap = new Map<number, { revenue: number; paymentCount: number; latestDate: string }>();
+    const monthMap = new Map<number, { revenue: number; paymentCount: number; customerCount: number; latestDate: string }>();
     if (dashboardData?.history && dashboardData.history.length > 0) {
       for (const h of dashboardData.history) {
         const d = new Date(h.metricDate);
         if (!isNaN(d.getTime())) {
           const mIdx = d.getMonth();
-          const existing = monthMap.get(mIdx) || { revenue: 0, paymentCount: 0, latestDate: h.metricDate };
+          const existing = monthMap.get(mIdx) || { revenue: 0, paymentCount: 0, customerCount: 0, latestDate: h.metricDate };
           monthMap.set(mIdx, {
-            revenue: existing.revenue + Number(h.revenue || 0),
+            revenue: Math.max(existing.revenue, Number(h.revenue || 0)),
             paymentCount: existing.paymentCount + Number(h.paymentCount || 0),
+            customerCount: Math.max(existing.customerCount, Number(h.customerCount || 0)),
             latestDate: h.metricDate,
           });
         }
       }
     }
+
+    // Determine scaleMax dynamically based on maximum monthly revenue across the year
+    const allMonthlyRevs = Array.from(monthMap.values()).map((v) => v.revenue);
+    const peakMonthlyRev = Math.max(...allMonthlyRevs, 40000);
+    // Round scaleMax up to clean tens of thousands (e.g. 60000, 70000, 80000)
+    const scaleMax = Math.max(60000, Math.ceil(peakMonthlyRev / 10000) * 10000);
 
     return monthNames.map((name, idx) => {
       const fallback = MONTHS_DATA[idx] || {
@@ -254,45 +261,38 @@ export default function DashboardOverviewPage() {
         empty: 6,
         newCount: 3,
         activeCount: 3,
-        newUser: "10k",
-        existingUser: "15k",
+        newUser: "120 users",
+        existingUser: "280 users",
         total: "$25,000",
       };
 
       const live = monthMap.get(idx);
-      if (live && live.revenue > 0) {
-        const totalRev = live.revenue;
-        const newRev = Math.round(totalRev * 0.35);
-        const activeRev = Math.max(0, totalRev - newRev);
-        const totalCells = 12;
-        const activeCount = Math.min(8, Math.max(1, Math.round((activeRev / (totalRev || 1)) * 9)));
-        const newCount = Math.min(4, Math.max(1, Math.round((newRev / (totalRev || 1)) * 5)));
-        const empty = Math.max(0, totalCells - activeCount - newCount);
+      const totalRev = live && live.revenue > 0 ? live.revenue : Number(fallback.total?.replace(/[^0-9]/g, "") || 25000);
+      const totalCust = (live && live.customerCount > 0) ? live.customerCount : Math.max(40, Math.round(totalRev / 250));
 
-        const formatRev = (n: number) => {
-          if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}m`;
-          if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}k`;
-          return `$${n}`;
-        };
+      const newCust = Math.max(1, Math.round(totalCust * 0.32));
+      const activeCust = Math.max(1, totalCust - newCust);
 
-        return {
-          id: `month-${name}-${idx}`,
-          name: name.toUpperCase(),
-          label: `${name} 2026`,
-          empty,
-          newCount,
-          activeCount,
-          newUser: formatRev(newRev),
-          existingUser: formatRev(activeRev),
-          total: `$${totalRev.toLocaleString()}`,
-        };
-      }
+      // Total 12 vertical discrete cells
+      const totalCells = 12;
+      // Filled cells directly proportional to revenue vs scaleMax (giving dynamic height curves)
+      const filledCells = Math.max(2, Math.min(12, Math.round((totalRev / scaleMax) * totalCells)));
+
+      // Distribute filled cells between active and new
+      const newCount = Math.max(1, Math.min(4, Math.round(filledCells * 0.35)));
+      const activeCount = Math.max(1, filledCells - newCount);
+      const empty = Math.max(0, totalCells - activeCount - newCount);
 
       return {
-        ...fallback,
         id: `month-${name}-${idx}`,
         name: name.toUpperCase(),
         label: `${name} 2026`,
+        empty,
+        newCount,
+        activeCount,
+        newUser: `${newCust.toLocaleString()} users`,
+        existingUser: `${activeCust.toLocaleString()} users`,
+        total: `$${totalRev.toLocaleString()}`,
       };
     });
   }, [dashboardData?.history]);
@@ -300,7 +300,8 @@ export default function DashboardOverviewPage() {
   // Dynamic 11-bar Revenue Breakdown needle graph derived from live transactions & rollups
   const dynamicRevenueBars = useMemo(() => {
     const days = [1, 3, 5, 7, 9, 11, 13, 15, 16, 17, 18];
-    return days.map((d, i) => {
+    // Gather day revenues
+    const dayDataList = days.map((d) => {
       const targetDateStr = `2026-09-${String(d).padStart(2, "0")}`;
       const matchingRollup = dashboardData?.history?.find(
         (h) => h.metricDate.startsWith(targetDateStr)
@@ -310,23 +311,33 @@ export default function DashboardOverviewPage() {
         return t.payment_timestamp.startsWith(targetDateStr);
       });
       const txSum = matchingTxs.reduce((sum, t) => sum + (t.amount || 0), 0);
-      const dayRev = matchingRollup?.revenue || txSum || (2200 + ((d * 387) % 8500));
+      // Clean, realistic day revenue
+      let dayRev = txSum > 0 ? txSum : (matchingRollup?.revenue ? Math.round(matchingRollup.revenue / 28) : 0);
+      if (!dayRev || dayRev < 500) {
+        dayRev = Math.round(1800 + ((d * 791) % 4400));
+      }
+      return { d, dayRev };
+    });
 
-      const expansionNum = Math.round(dayRev * 0.3);
+    const revValues = dayDataList.map((x) => x.dayRev);
+    const peakDay = Math.max(...revValues, 10000);
+
+    return dayDataList.map(({ d, dayRev }, i) => {
+      const expansionNum = Math.round(dayRev * 0.32);
       const baseNum = Math.max(0, dayRev - expansionNum);
 
-      // Heights: 6 to 36 scale
-      const maxRev = 25000;
-      const topHeightClass = `h-${Math.max(6, Math.min(28, Math.round((expansionNum / maxRev) * 32)))}`;
-      const botHeightClass = `h-${Math.max(8, Math.min(36, Math.round((baseNum / maxRev) * 36)))}`;
+      // Proportional pixel height out of 110px max height
+      const totalHeightPx = Math.max(20, Math.min(110, Math.round((Math.min(dayRev, peakDay) / peakDay) * 110)));
+      const expansionPx = Math.max(6, Math.round(totalHeightPx * 0.32));
+      const basePx = Math.max(10, totalHeightPx - expansionPx);
 
       const formatCurrency = (val: number) => `$${val.toLocaleString()}`;
 
       return {
         id: i + 1,
         date: `Sep ${d}`,
-        topH: topHeightClass,
-        botH: botHeightClass,
+        topPx: expansionPx,
+        botPx: basePx,
         expansion: formatCurrency(expansionNum),
         base: formatCurrency(baseNum),
         total: formatCurrency(dayRev),
@@ -1008,7 +1019,7 @@ export default function DashboardOverviewPage() {
                       <div
                         className={`absolute -top-7 ${
                           idx > 7 ? "-left-28" : "-right-16"
-                        } z-20 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl px-3 py-2 shadow-floating text-left min-w-[124px] pointer-events-none transition-all`}
+                        } z-20 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl px-3 py-2 shadow-floating text-left min-w-[130px] pointer-events-none transition-all`}
                       >
                         <div className="text-[11px] font-semibold text-gray-800">
                           {m.label}
@@ -1017,7 +1028,7 @@ export default function DashboardOverviewPage() {
                           <div className="flex items-center justify-between gap-2 text-gray-500">
                             <span className="inline-flex items-center gap-1">
                               <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>{" "}
-                              New User
+                              New Users
                             </span>
                             <span className="font-semibold text-gray-900 font-mono">
                               {m.newUser}
@@ -1026,11 +1037,15 @@ export default function DashboardOverviewPage() {
                           <div className="flex items-center justify-between gap-2 text-gray-500">
                             <span className="inline-flex items-center gap-1">
                               <span className="w-1.5 h-1.5 rounded-full bg-black"></span>{" "}
-                              Existing User
+                              Active Users
                             </span>
                             <span className="font-semibold text-gray-900 font-mono">
                               {m.existingUser}
                             </span>
+                          </div>
+                          <div className="pt-1 mt-1 border-t border-gray-100 flex items-center justify-between font-semibold text-gray-900 font-mono">
+                            <span>Revenue:</span>
+                            <span>{m.total}</span>
                           </div>
                         </div>
                       </div>
@@ -1286,10 +1301,12 @@ export default function DashboardOverviewPage() {
                     )}
 
                     <div
-                      className={`w-1.5 bg-gray-200 rounded-t-sm ${bar.topH} transition-all duration-150 ${isHovered ? "bg-gray-400 scale-x-125" : "group-hover:bg-gray-300"}`}
+                      style={{ height: `${bar.topPx}px` }}
+                      className={`w-1.5 bg-gray-200 rounded-t-sm transition-all duration-150 ${isHovered ? "bg-gray-400 scale-x-125" : "group-hover:bg-gray-300"}`}
                     ></div>
                     <div
-                      className={`w-1.5 bg-black rounded-b-sm ${bar.botH} transition-all duration-150 ${isHovered ? "bg-black scale-x-125 ring-1 ring-black" : ""}`}
+                      style={{ height: `${bar.botPx}px` }}
+                      className={`w-1.5 bg-black rounded-b-sm transition-all duration-150 ${isHovered ? "bg-black scale-x-125 ring-1 ring-black" : ""}`}
                     ></div>
                   </div>
                 );
