@@ -1155,14 +1155,10 @@ export default function DashboardOverviewPage() {
               </button>
             </div>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="text-xs text-gray-400">
-                  {timeframe === "Weekly"
-                    ? "12-Week Revenue:"
-                    : timeframe === "Yearly"
-                    ? "All-Time Revenue:"
-                    : "Total Revenue:"}{" "}
-                  <span className="text-lg font-bold text-gray-900 ml-1 font-mono">
+              <div className="flex items-center gap-6">
+                <div className="text-xs text-gray-400 font-medium">
+                  Total Revenue :{" "}
+                  <span className="text-xl font-bold text-gray-900 ml-1.5 font-mono">
                     {isDashboardLoading ? (
                       "Loading..."
                     ) : (
@@ -1170,27 +1166,15 @@ export default function DashboardOverviewPage() {
                     )}
                   </span>
                 </div>
-                <div className="flex items-center gap-6">
-                  <div className="text-xs text-gray-400 font-medium">
-                    Total Revenue :{" "}
-                    <span className="text-xl font-bold text-gray-900 ml-1.5 font-mono">
-                      {isDashboardLoading ? (
-                        "Loading..."
-                      ) : (
-                        salesTrendResult.totalRevenue
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-4 text-xs font-semibold tracking-wide text-gray-600">
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full border border-gray-400 bg-white"></span>
-                      <span className="text-[11px] uppercase tracking-wider text-gray-500 font-mono">NEW USER</span>
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-black"></span>
-                      <span className="text-[11px] uppercase tracking-wider text-gray-500 font-mono">EXISTING USER</span>
-                    </span>
-                  </div>
+                <div className="flex items-center gap-4 text-xs font-semibold tracking-wide text-gray-600">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full border border-gray-400 bg-white"></span>
+                    <span className="text-[11px] uppercase tracking-wider text-gray-500 font-mono">NEW USER</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-black"></span>
+                    <span className="text-[11px] uppercase tracking-wider text-gray-500 font-mono">EXISTING USER</span>
+                  </span>
                 </div>
               </div>
               {/* Granularity Pill Selector */}
@@ -1233,15 +1217,23 @@ export default function DashboardOverviewPage() {
               ))}
             </div>
 
-            {/* 48-Column Wave Chart Canvas */}
-            <div className="relative pl-8 pr-2 flex items-end justify-between h-52 pt-2">
+            {/* 48-Column Wave Chart Canvas with Equal Horizontal and Vertical Spacing */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(48, minmax(0, 1fr))",
+                gap: "2.5px",
+              }}
+              className="relative w-full pl-9 pr-3 items-end pt-2"
+            >
               {salesTrendResult.columns.map((col) => {
                 const isHovered = hoveredCol === col.colIndex;
                 return (
                   <div
                     key={col.id}
                     onMouseEnter={() => setHoveredCol(col.colIndex)}
-                    className="relative flex flex-col gap-[2px] items-center cursor-pointer group py-0.5"
+                    style={{ gap: "2.5px" }}
+                    className="relative flex flex-col items-center cursor-pointer group py-0.5"
                   >
                     {/* Dashed Vertical Guideline */}
                     {isHovered && (
@@ -1251,7 +1243,7 @@ export default function DashboardOverviewPage() {
                     {/* Interactive Focal Tracking Dot at boundary */}
                     {isHovered && (
                       <div
-                        style={{ bottom: `${col.activeCells * 10 - 2}px` }}
+                        style={{ bottom: `calc((${col.activeCells} / 20) * 100% - 4px)` }}
                         className="absolute w-2.5 h-2.5 rounded-full bg-black ring-2 ring-white shadow-xs pointer-events-none z-20"
                       />
                     )}
@@ -1301,7 +1293,7 @@ export default function DashboardOverviewPage() {
                     {Array.from({ length: col.emptyCells }).map((_, r) => (
                       <div
                         key={`emp-${r}`}
-                        className="w-2 h-2 rounded-[1.5px] bg-[#f8fafc] border border-gray-100/70 transition-colors"
+                        className="w-full aspect-square rounded-[1.5px] bg-[#f8fafc] border border-gray-100/70 transition-colors"
                       />
                     ))}
 
@@ -1309,7 +1301,7 @@ export default function DashboardOverviewPage() {
                     {Array.from({ length: col.newCells }).map((_, r) => (
                       <div
                         key={`new-${r}`}
-                        className={`w-2 h-2 rounded-[1.5px] transition-all duration-150 ${
+                        className={`w-full aspect-square rounded-[1.5px] transition-all duration-150 ${
                           isHovered ? "bg-[#94a3b8] scale-105" : "bg-[#cbd5e1]"
                         }`}
                       />
@@ -1319,7 +1311,7 @@ export default function DashboardOverviewPage() {
                     {Array.from({ length: col.activeCells }).map((_, r) => (
                       <div
                         key={`act-${r}`}
-                        className={`w-2 h-2 rounded-[1.5px] transition-all duration-150 ${
+                        className={`w-full aspect-square rounded-[1.5px] transition-all duration-150 ${
                           isHovered ? "bg-zinc-800 scale-105 ring-1 ring-black" : "bg-black"
                         }`}
                       />
@@ -1330,7 +1322,7 @@ export default function DashboardOverviewPage() {
             </div>
 
             {/* X-Axis Month / Period Labels Below Chart */}
-            <div className="flex justify-between pl-8 pr-2 mt-2 pt-1 border-t border-dashed border-gray-100/90">
+            <div className="flex w-full pl-9 pr-3 mt-2 pt-1 border-t border-dashed border-gray-100/90">
               {salesTrendResult.monthLabels.map((lbl, idx) => {
                 const colsPerLabel = 48 / salesTrendResult.monthLabels.length;
                 const isThisMonthHovered =
@@ -1339,7 +1331,7 @@ export default function DashboardOverviewPage() {
                 return (
                   <span
                     key={lbl}
-                    className={`text-[10px] uppercase tracking-wider transition-all select-none ${
+                    className={`flex-1 text-center text-[10px] uppercase tracking-wider transition-all select-none ${
                       isThisMonthHovered
                         ? "font-bold text-gray-900 underline underline-offset-4 decoration-2"
                         : "font-semibold text-gray-400"
