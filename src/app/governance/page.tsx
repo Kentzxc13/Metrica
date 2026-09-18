@@ -1,14 +1,109 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useDashboard } from '@/context/DashboardContext';
 import { INITIAL_BOARD_MEETINGS } from '@/data/governance';
 import { BoardMeeting } from '@/types/governance';
 
 export default function BoardGovernancePage() {
     const { globalSearchQuery, showActionToast } = useDashboard();
-    const [boardMeetings] = useState<BoardMeeting[]>(INITIAL_BOARD_MEETINGS);
+    const [boardMeetings, setBoardMeetings] =
+        useState<BoardMeeting[]>(INITIAL_BOARD_MEETINGS);
+
+    const [isLoadingCommitments, setIsLoadingCommitments] = useState(true);
     const [selectedMeetingId, setSelectedMeetingId] = useState<string>('bm-2');
+
+    useEffect(() => {
+        const loadGovernanceCommitments = async () => {
+            try {
+                setIsLoadingCommitments(true);
+
+                const response = await fetch('/api/governance');
+
+                if (!response.ok) {
+                    throw new Error('Failed to load governance commitments');
+                }
+
+                const data = await response.json();
+                const commitments = data.commitments || [];
+
+                setBoardMeetings((currentMeetings) =>
+                    currentMeetings.map((meeting) => {
+                        const liveCommitments = commitments.filter(
+                            (commitment: any) =>
+                                commitment.meetingId === meeting.id
+                        );
+
+                        const existingCommitments =
+                            meeting.priorCommitments || [];
+
+                        const updatedCommitments =
+                            existingCommitments.map((staticCommitment) => {
+                                const liveCommitment = liveCommitments.find(
+                                    (commitment: any) =>
+                                        commitment.title ===
+                                        staticCommitment.title
+                                );
+
+                                if (!liveCommitment) {
+                                    return staticCommitment;
+                                }
+
+                                return {
+                                    ...staticCommitment,
+                                    id: liveCommitment.id,
+                                    status: liveCommitment.status,
+                                    owner: liveCommitment.owner,
+                                    targetDeadline:
+                                        liveCommitment.targetDeadline,
+                                    resolutionNote:
+                                        liveCommitment.resolutionNote,
+                                };
+                            });
+
+                        const existingTitles = new Set(
+                            existingCommitments.map(
+                                (commitment) => commitment.title
+                            )
+                        );
+
+                        const newLiveCommitments = liveCommitments
+                            .filter(
+                                (commitment: any) =>
+                                    !existingTitles.has(commitment.title)
+                            )
+                            .map((commitment: any) => ({
+                                id: commitment.id,
+                                title: commitment.title,
+                                status: commitment.status,
+                                owner: commitment.owner,
+                                targetDeadline:
+                                    commitment.targetDeadline,
+                                resolutionNote:
+                                    commitment.resolutionNote,
+                            }));
+
+                        return {
+                            ...meeting,
+                            priorCommitments: [
+                                ...updatedCommitments,
+                                ...newLiveCommitments,
+                            ],
+                        };
+                    })
+                );
+            } catch (error) {
+                console.error(
+                    'Failed to load governance commitments:',
+                    error
+                );
+            } finally {
+                setIsLoadingCommitments(false);
+            }
+        };
+
+        loadGovernanceCommitments();
+    }, []);
 
     const filteredBoardMeetings = boardMeetings.filter(m =>
         m.companyName.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
@@ -18,6 +113,23 @@ export default function BoardGovernancePage() {
     );
 
     const selectedMeeting = boardMeetings.find(m => m.id === selectedMeetingId) || boardMeetings[0];
+
+    // STEP 91B — Live commitment delivery calculation
+    const selectedMeetingCommitments =
+        selectedMeeting?.priorCommitments || [];
+
+    const completedCommitments = selectedMeetingCommitments.filter(
+        (commitment) => commitment.status === 'completed'
+    ).length;
+
+    const totalCommitments = selectedMeetingCommitments.length;
+
+    const commitmentDeliveryRate =
+        totalCommitments > 0
+            ? Math.round(
+                  (completedCommitments / totalCommitments) * 100
+              )
+            : 0;
 
     return (
         <div className="flex flex-col gap-5 pb-8">
@@ -207,7 +319,7 @@ export default function BoardGovernancePage() {
                                         <div>
                                             <div className="text-[10px] text-gray-400 uppercase font-semibold tracking-wider">Prior Commitments</div>
                                             <div className="font-bold text-gray-900 text-xs mt-0.5">
-                                                {selectedMeeting.deliveryRate || 'Tracked'}
+                                                {`${completedCommitments} of ${totalCommitments} Delivered (${commitmentDeliveryRate}%)`}
                                             </div>
                                         </div>
                                         <span className="text-[11px] font-semibold text-zinc-900">→ Right Panel</span>
@@ -230,7 +342,7 @@ export default function BoardGovernancePage() {
                                 </h3>
                             </div>
                             <span className="text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200/60 px-2.5 py-1 rounded-md">
-                                {selectedMeeting.deliveryRate || '2 of 3 Delivered (67%)'}
+                                {`${completedCommitments} of ${totalCommitments} Delivered (${commitmentDeliveryRate}%)`}
                             </span>
                         </div>
 
