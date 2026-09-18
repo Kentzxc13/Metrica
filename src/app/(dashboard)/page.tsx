@@ -290,8 +290,8 @@ export default function DashboardOverviewPage() {
         empty,
         newCount,
         activeCount,
-        newUser: `${newCust.toLocaleString()} users`,
-        existingUser: `${activeCust.toLocaleString()} users`,
+        newUser: `+${newCust.toLocaleString()}`,
+        existingUser: `${activeCust.toLocaleString()}`,
         total: `$${totalRev.toLocaleString()}`,
       };
     });
@@ -345,9 +345,12 @@ export default function DashboardOverviewPage() {
     });
   }, [dashboardData?.history, transactions]);
 
-  // Table search & selection
+  // Table search & pagination & selection
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const pageSize = 10;
+
   // Filter transactions based on in-table search
   const filteredTransactions = transactions.filter(
     (t) =>
@@ -356,11 +359,31 @@ export default function DashboardOverviewPage() {
       t.code.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
+  const totalPages = Math.max(1, Math.ceil(filteredTransactions.length / pageSize));
+
+  // Reset page to 1 if search query changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(1);
+    }
+  }, [currentPage, totalPages]);
+
+  const paginatedTransactions = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredTransactions.slice(start, start + pageSize);
+  }, [filteredTransactions, currentPage, pageSize]);
+
   const handleSelectAll = () => {
-    if (selectedRows.length === filteredTransactions.length) {
-      setSelectedRows([]);
+    const pageIds = paginatedTransactions.map((t) => t.id);
+    const allSelected = pageIds.length > 0 && pageIds.every((id) => selectedRows.includes(id));
+    if (allSelected) {
+      setSelectedRows((prev) => prev.filter((id) => !pageIds.includes(id)));
     } else {
-      setSelectedRows(filteredTransactions.map((t) => t.id));
+      setSelectedRows((prev) => Array.from(new Set([...prev, ...pageIds])));
     }
   };
 
@@ -1014,39 +1037,50 @@ export default function DashboardOverviewPage() {
                       <div className="absolute -top-3 w-px h-52 border-l border-dashed border-gray-400 pointer-events-none z-10"></div>
                     )}
 
-                    {/* Interactive Floating Tooltip Callout */}
+                    {/* Interactive Floating Tooltip Callout (Impeccable & Matches Image 2) */}
                     {isHovered && (
                       <div
-                        className={`absolute -top-7 ${
-                          idx > 7 ? "-left-28" : "-right-16"
-                        } z-20 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl px-3 py-2 shadow-floating text-left min-w-[130px] pointer-events-none transition-all`}
+                        className={`absolute bottom-full mb-3.5 ${
+                          idx <= 1
+                            ? "left-0"
+                            : idx >= 10
+                            ? "right-0"
+                            : "left-1/2 -translate-x-1/2"
+                        } z-30 bg-white/95 backdrop-blur-md border border-gray-200/90 rounded-2xl p-3.5 shadow-floating text-left min-w-[190px] w-max pointer-events-none select-none transition-all`}
                       >
-                        <div className="text-[11px] font-semibold text-gray-800">
+                        {/* Header Month / Year */}
+                        <div className="text-xs font-bold text-gray-900 tracking-tight mb-2.5">
                           {m.label}
                         </div>
-                        <div className="mt-1 space-y-0.5 text-[10px]">
-                          <div className="flex items-center justify-between gap-2 text-gray-500">
-                            <span className="inline-flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>{" "}
-                              New Users
+
+                        {/* Breakdown Rows */}
+                        <div className="space-y-1.5 text-[11px]">
+                          <div className="flex items-center justify-between gap-4 text-gray-500 whitespace-nowrap">
+                            <span className="inline-flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-[#94a3b8]"></span>
+                              <span className="font-medium text-gray-600">New Users</span>
                             </span>
-                            <span className="font-semibold text-gray-900 font-mono">
-                              {m.newUser}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between gap-2 text-gray-500">
-                            <span className="inline-flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-black"></span>{" "}
-                              Active Users
-                            </span>
-                            <span className="font-semibold text-gray-900 font-mono">
-                              {m.existingUser}
+                            <span className="font-bold text-gray-900 font-mono">
+                              {m.newUser.replace(/^\+/, "")} users
                             </span>
                           </div>
-                          <div className="pt-1 mt-1 border-t border-gray-100 flex items-center justify-between font-semibold text-gray-900 font-mono">
-                            <span>Revenue:</span>
-                            <span>{m.total}</span>
+                          <div className="flex items-center justify-between gap-4 text-gray-500 whitespace-nowrap">
+                            <span className="inline-flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-black"></span>
+                              <span className="font-medium text-gray-600">Active Users</span>
+                            </span>
+                            <span className="font-bold text-gray-900 font-mono">
+                              {m.existingUser.replace(/^\+/, "")} users
+                            </span>
                           </div>
+                        </div>
+
+                        {/* Bottom Total Revenue */}
+                        <div className="mt-2.5 pt-2 border-t border-dashed border-gray-200/80 flex items-center justify-between gap-4 whitespace-nowrap">
+                          <span className="text-xs font-bold text-gray-900">Revenue :</span>
+                          <span className="text-xs font-bold font-mono text-gray-900">
+                            {m.total}
+                          </span>
                         </div>
                       </div>
                     )}
@@ -1399,32 +1433,32 @@ export default function DashboardOverviewPage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse table-fixed min-w-[820px]">
+        <div className="w-full overflow-hidden">
+          <table className="w-full text-left text-xs border-collapse table-fixed">
             <thead>
               <tr className="border-b border-gray-100 text-gray-400 font-semibold uppercase text-[11px]">
                 <th className="py-3 px-2 w-[4%] text-center">
                   <input
                     checked={
-                      selectedRows.length === filteredTransactions.length &&
-                      filteredTransactions.length > 0
+                      paginatedTransactions.length > 0 &&
+                      paginatedTransactions.every((tx) => selectedRows.includes(tx.id))
                     }
                     onChange={handleSelectAll}
                     className="rounded border-gray-300 text-black focus:ring-black h-3.5 w-3.5 cursor-pointer"
                     type="checkbox"
                   />
                 </th>
-                <th className="py-3 px-3 w-[14%]">Timestamp</th>
-                <th className="py-3 px-3 w-[18%]">Event Code</th>
-                <th className="py-3 px-3 w-[18%]">Customer</th>
-                <th className="py-3 px-3 w-[20%]">Product / Plan</th>
-                <th className="py-3 px-3 w-[12%] text-left">Status</th>
-                <th className="py-3 px-3 w-[10%] text-left">Revenue</th>
-                <th className="py-3 px-3 w-[4%] text-center">Actions</th>
+                <th className="py-3 px-2.5 w-[14%]">Timestamp</th>
+                <th className="py-3 px-2.5 w-[16%]">Event Code</th>
+                <th className="py-3 px-2.5 w-[18%]">Customer</th>
+                <th className="py-3 px-2.5 w-[22%]">Product / Plan</th>
+                <th className="py-3 px-2.5 w-[12%] text-left">Status</th>
+                <th className="py-3 px-2.5 w-[10%] text-left">Revenue</th>
+                <th className="py-3 px-1 w-[4%] text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
-              {filteredTransactions.map((tx) => {
+              {paginatedTransactions.map((tx) => {
                 const rowClass = !shouldAnimateRows
                   ? "event-row-hidden"
                   : hasAlreadyAnimated
@@ -1444,7 +1478,7 @@ export default function DashboardOverviewPage() {
                         type="checkbox"
                       />
                     </td>
-                    <td className="py-3.5 px-3">
+                    <td className="py-3.5 px-2.5">
                       <div className="font-mono text-xs font-bold text-gray-900" suppressHydrationWarning>
                         {formatTimeClean(tx.timestamp)}
                       </div>
@@ -1453,24 +1487,24 @@ export default function DashboardOverviewPage() {
                       </span>
                     </td>
                     <td
-                      className="py-3.5 px-3 font-mono font-semibold text-gray-900 truncate"
+                      className="py-3.5 px-2.5 font-mono font-semibold text-gray-900 truncate"
                       title={tx.code}
                     >
                       {tx.code}
                     </td>
                     <td
-                      className="py-3.5 px-3 font-semibold text-gray-900 truncate"
+                      className="py-3.5 px-2.5 font-semibold text-gray-900 truncate"
                       title={tx.customer}
                     >
                       {tx.customer}
                     </td>
                     <td
-                      className="py-3.5 px-3 text-gray-600 truncate"
+                      className="py-3.5 px-2.5 text-gray-600 truncate"
                       title={tx.product}
                     >
                       {tx.product}
                     </td>
-                    <td className="py-3.5 px-3 text-left">
+                    <td className="py-3.5 px-2.5 text-left">
                       <span
                         className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium ${
                           tx.status === "Success"
@@ -1500,10 +1534,10 @@ export default function DashboardOverviewPage() {
                         {tx.status}
                       </span>
                     </td>
-                    <td className="py-3.5 px-3 text-left font-mono font-bold text-gray-900">
+                    <td className="py-3.5 px-2.5 text-left font-mono font-bold text-gray-900">
                       {tx.totalRevenue}
                     </td>
-                    <td className="py-3.5 px-3 text-center relative">
+                    <td className="py-3.5 px-1 text-center relative">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1525,7 +1559,7 @@ export default function DashboardOverviewPage() {
                       {activeActionTx?.id === tx.id && (
                         <div
                           onClick={(e) => e.stopPropagation()}
-                          className="absolute right-3 top-10 z-40 bg-white border border-gray-200 rounded-xl shadow-floating p-1.5 min-w-[175px] text-left animate-in fade-in zoom-in-95 duration-150"
+                          className="absolute right-1 top-10 z-40 bg-white border border-gray-200 rounded-xl shadow-floating p-1.5 min-w-[175px] text-left animate-in fade-in zoom-in-95 duration-150"
                         >
                           <button
                             onClick={() => {
@@ -1592,6 +1626,71 @@ export default function DashboardOverviewPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Impeccable Dotted Pagination Footer */}
+        {totalPages > 1 && (
+          <div className="mt-4 pt-3.5 border-t border-gray-100 grid grid-cols-1 sm:grid-cols-3 items-center gap-3 text-xs">
+            {/* Left: Showing records summary */}
+            <div className="text-left text-gray-400 font-medium text-[11px]">
+              Showing <span className="font-semibold text-gray-700 font-mono">{(currentPage - 1) * pageSize + 1}</span>–<span className="font-semibold text-gray-700 font-mono">{Math.min(currentPage * pageSize, filteredTransactions.length)}</span> of <span className="font-semibold text-gray-700 font-mono">{filteredTransactions.length}</span> records
+            </div>
+
+            {/* Middle: Centered Sleek Dotted Pagination */}
+            <div className="flex justify-center">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gray-50 border border-gray-200/80 shadow-2xs">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="p-1 rounded-full text-gray-500 hover:text-black hover:bg-white disabled:opacity-25 disabled:pointer-events-none transition-all cursor-pointer"
+                  title="Previous Page"
+                  aria-label="Previous Page"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path d="M15 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2"></path>
+                  </svg>
+                </button>
+
+                {/* Dotted Page Indicators */}
+                <div className="flex items-center gap-1.5 px-1">
+                  {Array.from({ length: totalPages }).map((_, i) => {
+                    const pageNum = i + 1;
+                    const isActive = currentPage === pageNum;
+                    return (
+                      <button
+                        key={`page-dot-${pageNum}`}
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
+                          isActive
+                            ? "w-6 bg-black shadow-xs"
+                            : "w-2 bg-gray-300 hover:bg-gray-500 hover:scale-125"
+                        }`}
+                        title={`Go to page ${pageNum}`}
+                        aria-label={`Page ${pageNum}`}
+                      />
+                    );
+                  })}
+                </div>
+
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="p-1 rounded-full text-gray-500 hover:text-black hover:bg-white disabled:opacity-25 disabled:pointer-events-none transition-all cursor-pointer"
+                  title="Next Page"
+                  aria-label="Next Page"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Right: Page indicator */}
+            <div className="text-left sm:text-right text-gray-400 font-medium text-[11px]">
+              Page <span className="font-semibold text-gray-700 font-mono">{currentPage}</span> of <span className="font-semibold text-gray-700 font-mono">{totalPages}</span>
+            </div>
+          </div>
+        )}
       </section>
       {/* END: RecentEventsSection */}
 
