@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useDashboard } from '@/context/DashboardContext';
 import { AuditLedgerEvent } from '@/types/ledger';
 import { AuditEventModal } from '@/components/modals/AuditEventModal';
+import { supabaseBrowser } from '@/lib/supabase-browser';
 import { formatTimeClean, getRelativeTime } from '@/utils/time';
 
 // Module-level flag so it survives client-side page transitions (Ledger -> Dashboard -> Ledger),
@@ -69,11 +70,15 @@ export default function EventLedgerPage() {
         return () => window.clearInterval(timer);
     }, []);
 
-    // Load ledger events from API
+    // Load ledger events and subscribe to live Supabase payment changes
     useEffect(() => {
-        const loadLedgerEvents = async () => {
+        let isMounted = true;
+
+        const loadLedgerEvents = async (showLoading = false) => {
             try {
-                setIsLoading(true);
+                if (showLoading) {
+                    setIsLoading(true);
+                }
 
                 const response = await fetch('/api/ledger');
 
@@ -83,16 +88,57 @@ export default function EventLedgerPage() {
 
                 const data = await response.json();
 
-                setAuditEvents(data.events || []);
+                if (isMounted) {
+                    setAuditEvents(data.events || []);
+                }
             } catch (error) {
                 console.error('Failed to load ledger events:', error);
-                setAuditEvents([]);
+
+                if (isMounted) {
+                    setAuditEvents([]);
+                }
             } finally {
-                setIsLoading(false);
+                if (showLoading && isMounted) {
+                    setIsLoading(false);
+                }
             }
         };
 
-        loadLedgerEvents();
+        // Initial ledger load
+        loadLedgerEvents(true);
+
+        // Subscribe to live payment changes
+        const channel = supabaseBrowser
+            .channel('metrica-event-ledger')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'payments',
+                },
+                async (payload) => {
+                    console.log(
+                        '[Ledger Realtime] Payment change received:',
+                        payload
+                    );
+
+                    // Refresh the formatted ledger data after a
+                    // database change is received.
+                    await loadLedgerEvents(false);
+                }
+            )
+            .subscribe((status) => {
+                console.log(
+                    '[Ledger Realtime] Subscription status:',
+                    status
+                );
+            });
+
+        return () => {
+            isMounted = false;
+            supabaseBrowser.removeChannel(channel);
+        };
     }, []);
 
     // --- Derived KPI metrics ---
