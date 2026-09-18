@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useDashboard } from '@/context/DashboardContext';
-import { INITIAL_SCREENING_STARTUPS } from '@/data/screening';
+// Mock fallback kept commented out
+// import { INITIAL_SCREENING_STARTUPS } from '@/data/screening';
 import { StartupProspect } from '@/types/screening';
 import { StartupMemoModal } from '@/components/modals/StartupMemoModal';
 import { AddProspectModal } from '@/components/modals/AddProspectModal';
@@ -16,11 +17,34 @@ export default function AiScreeningPage() {
         toggleBookmarkStartup
     } = useDashboard();
 
-    const [startups, setStartups] = useState<StartupProspect[]>(INITIAL_SCREENING_STARTUPS);
+    const [startups, setStartups] = useState<StartupProspect[]>([]);
+    const [isLoadingStartups, setIsLoadingStartups] = useState<boolean>(true);
     const [isAddProspectModalOpen, setIsAddProspectModalOpen] = useState<boolean>(false);
     const [screeningSectorFilter, setScreeningSectorFilter] = useState<string>('All Sectors');
     const [isSectorDropdownOpen, setIsSectorDropdownOpen] = useState<boolean>(false);
     const [selectedStartupMemo, setSelectedStartupMemo] = useState<StartupProspect | null>(null);
+
+    useEffect(() => {
+        let isMounted = true;
+        const loadLiveProspects = async () => {
+            try {
+                setIsLoadingStartups(true);
+                const res = await fetch('/api/evaluate', { cache: 'no-store' });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (isMounted && Array.isArray(data.prospects) && data.prospects.length > 0) {
+                        setStartups(data.prospects);
+                    }
+                }
+            } catch (err) {
+                console.warn('Failed to load live prospects:', err);
+            } finally {
+                if (isMounted) setIsLoadingStartups(false);
+            }
+        };
+        loadLiveProspects();
+        return () => { isMounted = false; };
+    }, []);
 
     // Dynamic sectors derived straight from startup dataset
     const dynamicSectors = useMemo(() => {
@@ -94,16 +118,22 @@ export default function AiScreeningPage() {
             </section>
 
             {/* Grid of Deal Screening Rectangle Cards */}
-            <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {filteredStartups.map((startup) => {
-                    const isBookmarked = bookmarkedStartupIds.includes(startup.id);
-                    const churnNum = parseFloat(startup.churnRate.replace(/[^0-9.]/g, '')) || 0;
-                    const isHighChurn = startup.isChurnWarning || churnNum > 10;
+            {isLoadingStartups && filteredStartups.length === 0 ? (
+                <div className="p-12 text-center bg-white rounded-2xl border border-gray-200/80 shadow-card">
+                    <div className="inline-block w-6 h-6 border-2 border-zinc-900 border-t-transparent rounded-full animate-spin mb-2"></div>
+                    <p className="text-xs text-gray-400">Loading live verified SaaS deal flow from Supabase...</p>
+                </div>
+            ) : (
+                <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {filteredStartups.map((startup) => {
+                        const isBookmarked = bookmarkedStartupIds.includes(startup.id);
+                        const churnNum = parseFloat(startup.churnRate.replace(/[^0-9.]/g, '')) || 0;
+                        const isHighChurn = startup.isChurnWarning || churnNum > 10;
 
-                    return (
-                        <div
-                            key={startup.id}
-                            className="bg-white rounded-2xl p-5 border border-gray-200/80 shadow-card flex flex-col justify-between hover:shadow-floating transition-shadow">
+                        return (
+                            <div
+                                key={startup.id}
+                                className="bg-white rounded-2xl p-5 border border-gray-200/80 shadow-card flex flex-col justify-between hover:shadow-floating transition-shadow">
                             <div>
                                 {/* Header: Monogram, Name, Sector & Verification Badge */}
                                 <div className="flex items-start justify-between gap-3">
@@ -249,6 +279,7 @@ export default function AiScreeningPage() {
                     </div>
                 )}
             </section>
+            )}
 
             {/* Diligence Memo Modal */}
             <StartupMemoModal

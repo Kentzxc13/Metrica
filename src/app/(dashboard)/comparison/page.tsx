@@ -4,7 +4,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useDashboard } from '@/context/DashboardContext';
-import { COMPANIES } from '@/data/companies';
+// Mock fallback commented out
+// import { COMPANIES } from '@/data/companies';
 import { Company } from '@/types/company';
 import { AiScreeningModal } from '@/components/modals/AiScreeningModal';
 
@@ -17,6 +18,7 @@ export default function CompanyComparisonPage() {
     const {
         selectedCompanyId,
         setSelectedCompanyId,
+        companies,
         globalSearchQuery,
         showActionToast
     } = useDashboard();
@@ -70,7 +72,7 @@ export default function CompanyComparisonPage() {
     const [modalCompany, setModalCompany] = useState<Company | null>(null);
 
     // Filter companies for benchmark matrix (driven by Global Search & Tier Filter)
-    const filteredCompanies = COMPANIES.filter(c => {
+    const filteredCompanies = companies.filter(c => {
         const matchesSearch = c.name.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
                               c.type.toLowerCase().includes(globalSearchQuery.toLowerCase());
         const matchesTier = comparisonTierFilter === 'All' || c.aiTier === comparisonTierFilter;
@@ -285,8 +287,8 @@ export default function CompanyComparisonPage() {
                         <div className="flex items-center bg-gray-50 border border-gray-200/80 p-1 rounded-xl gap-1">
                             {(['All', 'Outperforming', 'Moderate', 'At Risk'] as const).map(tier => {
                                 const count = tier === 'All'
-                                    ? COMPANIES.length
-                                    : COMPANIES.filter(c => c.aiTier === tier).length;
+                                    ? companies.length
+                                    : companies.filter((c) => c.aiTier === tier).length;
                                 const isActive = comparisonTierFilter === tier;
                                 return (
                                     <button

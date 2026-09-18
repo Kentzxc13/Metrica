@@ -3,8 +3,10 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Company, Transaction } from '@/types/company';
 import { SystemAlert, TeamMessage } from '@/types/alerts';
-import { COMPANIES, INITIAL_TRANSACTIONS } from '@/data/companies';
+// Mock fallback kept commented out for offline resilience
+// import { COMPANIES, INITIAL_TRANSACTIONS } from '@/data/companies';
 import { INITIAL_SYSTEM_ALERTS, INITIAL_TEAM_MESSAGES } from '@/data/alertsAndMessages';
+import { supabaseBrowser } from '@/lib/supabase-browser';
 
 const TRANSACTIONS_CACHE_KEY = 'metrica_transactions_cache';
 
@@ -12,6 +14,8 @@ interface DashboardContextType {
     selectedCompanyId: string;
     setSelectedCompanyId: (id: string) => void;
     currentCompany: Company;
+    companies: Company[];
+    isCompaniesLoading: boolean;
     globalSearchQuery: string;
     setGlobalSearchQuery: (query: string) => void;
     actionToastMessage: string | null;
@@ -43,16 +47,46 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     const [messages, setMessages] = useState<TeamMessage[]>(INITIAL_TEAM_MESSAGES);
     const [bookmarkedStartupIds, setBookmarkedStartupIds] = useState<string[]>([]);
 
-    // Persistent transactions with localStorage caching & background Supabase sync
-    const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
+    // Live companies loaded directly from Supabase
+    const [companies, setCompanies] = useState<Company[]>([]);
+    const [isCompaniesLoading, setIsCompaniesLoading] = useState<boolean>(true);
+
+    // Persistent live transactions from Supabase (mock data hidden/commented out)
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [isTransactionsLoading, setIsTransactionsLoading] = useState<boolean>(true);
+
+    // Load live companies from Supabase
+    useEffect(() => {
+        let isMounted = true;
+        const loadCompanies = async () => {
+            try {
+                setIsCompaniesLoading(true);
+                const res = await fetch('/api/companies', { cache: 'no-store' });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (isMounted && Array.isArray(data.companies) && data.companies.length > 0) {
+                        setCompanies(data.companies);
+                    }
+                }
+            } catch (err) {
+                console.warn('Failed to load live companies:', err);
+            } finally {
+                if (isMounted) setIsCompaniesLoading(false);
+            }
+        };
+        loadCompanies();
+        return () => { isMounted = false; };
+    }, []);
 
     const refreshTransactions = useCallback(async () => {
         try {
-            const res = await fetch('/api/payments', { cache: 'no-store' });
+            const url = selectedCompanyId && selectedCompanyId !== 'all'
+                ? `/api/payments?company_id=${encodeURIComponent(selectedCompanyId)}`
+                : '/api/payments';
+            const res = await fetch(url, { cache: 'no-store' });
             if (res.ok) {
                 const data = await res.json();
-                if (Array.isArray(data.transactions) && data.transactions.length > 0) {
+                if (Array.isArray(data.transactions)) {
                     setTransactions(data.transactions);
                     if (typeof window !== 'undefined') {
                         try {
@@ -64,13 +98,13 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
                 }
             }
         } catch (err) {
-            console.warn('Background sync for transactions failed, using cached data:', err);
+            console.warn('Background sync for transactions failed:', err);
         } finally {
             setIsTransactionsLoading(false);
         }
-    }, []);
+    }, [selectedCompanyId]);
 
-    // Initial mount: load from localStorage cache first (immediate, no flicker), then background sync
+    // Initial mount: load from localStorage cache first, then background sync
     useEffect(() => {
         if (typeof window !== 'undefined') {
             try {
@@ -89,6 +123,28 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
         // Run background sync
         refreshTransactions();
+    }, [refreshTransactions]);
+
+    // Realtime Supabase payment events listener
+    useEffect(() => {
+        const channel = supabaseBrowser
+            .channel('dashboard_context_realtime_payments')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'payments',
+                },
+                () => {
+                    refreshTransactions();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabaseBrowser.removeChannel(channel);
+        };
     }, [refreshTransactions]);
 
     const addTransaction = useCallback((newTx: Transaction) => {
@@ -134,7 +190,36 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         }
     }, []);
 
-    const currentCompany = COMPANIES.find(c => c.id === selectedCompanyId) || COMPANIES[0];
+    // Live company resolution with safe fallback
+    const fallbackDefaultCompany: Company = {
+        id: 'cloudnest',
+        name: 'CloudNest Inc.',
+        initial: 'CN',
+        type: 'Enterprise SaaS',
+        revenue: '$142,500',
+        revenueGrowth: '+18.4% last month',
+        orders: '2,420',
+        ordersGrowth: '+12.1% last month',
+        customers: '1,420',
+        customersGrowth: '+8.4% last month',
+        conversionRate: '4.8%',
+        conversionGrowth: '+1.2% last month',
+        categoryRevenue: '$142,500',
+        categoryPeriod: 'Jan 1 - Sep 30',
+        aiTier: 'Outperforming',
+        aiScore: 94,
+        aiRationale: 'Exceptional net expansion (118% NRR) and industry-low churn (2.1%).',
+        highChurnWarning: false,
+        churnRate: '2.1%',
+        ltv: '$18,500',
+        ltvCac: '4.2x',
+        subscribers: '1,420',
+    };
+
+    const currentCompany = companies.find((c) => {
+        const target = selectedCompanyId.toLowerCase();
+        return c.id.toLowerCase() === target || c.name.toLowerCase().includes(target);
+    }) || companies[0] || fallbackDefaultCompany;
 
     const showActionToast = (msg: string) => {
         setActionToastMessage(msg);
@@ -174,6 +259,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
                 selectedCompanyId,
                 setSelectedCompanyId,
                 currentCompany,
+                companies,
+                isCompaniesLoading,
                 globalSearchQuery,
                 setGlobalSearchQuery,
                 actionToastMessage,
