@@ -296,7 +296,8 @@ export default function DashboardOverviewPage() {
 
     if (timeframe === "Weekly") {
       const monthLabels = ["W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8", "W9", "W10", "W11", "W12"];
-      const ticks = ["20k", "16k", "12k", "8k", "4k", "0k"];
+      // Scale based on users (Image 2: 0k - 60k headcount ticks)
+      const ticks = ["60k", "50k", "40k", "30k", "20k", "10k", "0k"];
       const totalRev = Math.round(baseCompRev * 0.95);
 
       const columns = WAVE_CONTOURS.map((c, i) => {
@@ -305,8 +306,10 @@ export default function DashboardOverviewPage() {
         const newCells = Math.max(1, Math.min(20 - activeCells, c.new));
         const emptyCells = Math.max(0, 20 - activeCells - newCells);
 
-        const newUsersVal = Math.round(newCells * 1200);
-        const existingUsersVal = Math.round(activeCells * 1100);
+        // 20 cells max = 60k users (3,000 users per discrete cell)
+        const newUsersVal = Math.round(newCells * 3000);
+        const existingUsersVal = Math.round(activeCells * 3000);
+        const weekRev = Math.round((baseCompRev / 4) * (0.88 + (((wIdx * 17) % 25) / 100)));
 
         return {
           id: `col-w-${i}`,
@@ -318,6 +321,7 @@ export default function DashboardOverviewPage() {
           emptyCells,
           newUserFormatted: `${Math.round(newUsersVal / 1000)}k`,
           existingUserFormatted: `${Math.round(existingUsersVal / 1000)}k`,
+          revenueFormatted: `$${weekRev.toLocaleString()}`,
         };
       });
 
@@ -331,7 +335,9 @@ export default function DashboardOverviewPage() {
 
     if (timeframe === "Yearly") {
       const monthLabels = ["2021", "2022", "2023", "2024", "2025", "2026"];
-      const ticks = ["120k", "100k", "80k", "60k", "40k", "20k", "0k"];
+      // Scale based on users (Image 2: 0k - 60k headcount ticks)
+      const ticks = ["60k", "50k", "40k", "30k", "20k", "10k", "0k"];
+      const yearlyRevs = [184500, 238200, 317828, 386400, 452000, 538900];
       const totalRev = Math.round(baseCompRev * 5.8);
 
       const columns = WAVE_CONTOURS.map((c, i) => {
@@ -341,8 +347,10 @@ export default function DashboardOverviewPage() {
         const newCells = Math.max(1, Math.min(20 - activeCells, c.new));
         const emptyCells = Math.max(0, 20 - activeCells - newCells);
 
-        const newUsersVal = Math.round(newCells * 3500);
-        const existingUsersVal = Math.round(activeCells * 3200);
+        // 20 cells max = 60k users (3,000 users per discrete cell)
+        const newUsersVal = Math.round(newCells * 3000);
+        const existingUsersVal = Math.round(activeCells * 3000);
+        const revVal = yearlyRevs[yIdx] || Math.round(baseCompRev * 5.8);
 
         return {
           id: `col-y-${i}`,
@@ -354,6 +362,7 @@ export default function DashboardOverviewPage() {
           emptyCells,
           newUserFormatted: `${Math.round(newUsersVal / 1000)}k`,
           existingUserFormatted: `${Math.round(existingUsersVal / 1000)}k`,
+          revenueFormatted: `$${revVal.toLocaleString()}`,
         };
       });
 
@@ -370,7 +379,14 @@ export default function DashboardOverviewPage() {
       "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
       "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
     ];
+    // Scale based on users (Image 2: 0k - 60k headcount ticks)
     const ticks = ["60k", "50k", "40k", "30k", "20k", "10k", "0k"];
+
+    // Base monthly seasonal distribution
+    const monthlyBaseRevs = [
+      42300, 45800, 51200, 48600, 53400, 57800,
+      61200, 54798, 32800, 49600, 46100, 58400,
+    ];
 
     // Compute live monthly scaling factors
     const columns = WAVE_CONTOURS.map((c, i) => {
@@ -383,8 +399,10 @@ export default function DashboardOverviewPage() {
       const newCells = Math.max(1, Math.min(20 - activeCells, Math.round(c.new * liveFactor)));
       const emptyCells = Math.max(0, 20 - activeCells - newCells);
 
-      const newUsersVal = Math.round(newCells * 3150);
+      // 20 cells max = 60k users (3,000 users per discrete cell)
+      const newUsersVal = Math.round(newCells * 3000);
       const existingUsersVal = Math.round(activeCells * 3000);
+      const mRev = live && live.revenue > 0 ? live.revenue : Math.round((monthlyBaseRevs[mIdx] || baseCompRev) * (baseCompRev / 54000));
 
       return {
         id: `col-m-${i}`,
@@ -396,6 +414,7 @@ export default function DashboardOverviewPage() {
         emptyCells,
         newUserFormatted: `${Math.round(newUsersVal / 1000)}k`,
         existingUserFormatted: `${Math.round(existingUsersVal / 1000)}k`,
+        revenueFormatted: `$${mRev.toLocaleString()}`,
       };
     });
 
@@ -526,12 +545,15 @@ export default function DashboardOverviewPage() {
       const expansionNum = Math.round(p.amount * 0.32);
       const baseNum = Math.max(0, p.amount - expansionNum);
 
+      // Elevated bar heights for impeccable vertical rhythm in the card
+      const maxBarHeight = 175;
+      const minBarHeight = 50;
       const totalHeightPx = Math.max(
-        20,
-        Math.min(110, Math.round((p.amount / peakVal) * 110))
+        minBarHeight,
+        Math.min(maxBarHeight, Math.round((p.amount / peakVal) * maxBarHeight))
       );
-      const expansionPx = Math.max(6, Math.round(totalHeightPx * 0.32));
-      const basePx = Math.max(10, totalHeightPx - expansionPx);
+      const expansionPx = Math.max(14, Math.round(totalHeightPx * 0.32));
+      const basePx = Math.max(26, totalHeightPx - expansionPx);
 
       return {
         id: i + 1,
@@ -1259,9 +1281,9 @@ export default function DashboardOverviewPage() {
                             : "left-1/2 -translate-x-1/2"
                         } z-30 bg-white/95 backdrop-blur-md border border-gray-200/90 rounded-2xl p-3.5 shadow-floating text-left min-w-[175px] w-max pointer-events-none select-none transition-all`}
                       >
-                        {/* Header Month / Year */}
-                        <div className="text-xs font-bold text-gray-900 tracking-tight mb-2.5">
-                          {col.monthLabel}
+                        {/* Header: Revenue instead of date */}
+                        <div className="text-xs font-bold text-gray-900 tracking-tight mb-2.5 font-mono">
+                          {col.revenueFormatted}
                         </div>
 
                         {/* Breakdown Rows */}
@@ -1297,22 +1319,22 @@ export default function DashboardOverviewPage() {
                       />
                     ))}
 
-                    {/* Middle: Light Gray New User Cells */}
+                    {/* Middle: Light Gray New User Cells (flat stationary hover) */}
                     {Array.from({ length: col.newCells }).map((_, r) => (
                       <div
                         key={`new-${r}`}
-                        className={`w-full aspect-square rounded-[1.5px] transition-all duration-150 ${
-                          isHovered ? "bg-[#94a3b8] scale-105" : "bg-[#cbd5e1]"
+                        className={`w-full aspect-square rounded-[1.5px] transition-colors duration-150 ${
+                          isHovered ? "bg-[#94a3b8]" : "bg-[#cbd5e1]"
                         }`}
                       />
                     ))}
 
-                    {/* Bottom: Solid Black Existing User Cells */}
+                    {/* Bottom: Solid Black Existing User Cells (flat stationary hover) */}
                     {Array.from({ length: col.activeCells }).map((_, r) => (
                       <div
                         key={`act-${r}`}
-                        className={`w-full aspect-square rounded-[1.5px] transition-all duration-150 ${
-                          isHovered ? "bg-zinc-800 scale-105 ring-1 ring-black" : "bg-black"
+                        className={`w-full aspect-square rounded-[1.5px] transition-colors duration-150 ${
+                          isHovered ? "bg-zinc-800" : "bg-black"
                         }`}
                       />
                     ))}
@@ -1510,10 +1532,10 @@ export default function DashboardOverviewPage() {
           </div>
 
           {/* Vertical High-Density Bar Graph */}
-          <div className="mt-6 pt-3 border-t border-dashed border-gray-100">
+          <div className="mt-4 pt-3 border-t border-dashed border-gray-100">
             <div
               onMouseLeave={() => setHoveredRevenueBar(null)}
-              className="relative flex items-end justify-between h-44 px-2"
+              className="relative flex items-end justify-between h-52 px-2"
             >
               {revenueBreakdownResult.bars.map((bar, idx) => {
                 const isHovered = hoveredRevenueBar === bar.id;
@@ -1527,7 +1549,7 @@ export default function DashboardOverviewPage() {
                     {/* Hover Floating Tooltip */}
                     {isHovered && (
                       <div
-                        className={`absolute -top-16 ${
+                        className={`absolute bottom-full mb-2 ${
                           idx > 6 ? "-left-28" : "-right-24"
                         } z-30 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl px-2.5 py-1.5 shadow-floating text-left min-w-[124px] pointer-events-none transition-all animate-in fade-in zoom-in-95`}
                       >
@@ -1563,14 +1585,14 @@ export default function DashboardOverviewPage() {
 
                     <div
                       style={{ height: `${bar.topPx}px` }}
-                      className={`w-1.5 bg-gray-200 rounded-t-sm transition-all duration-300 ${
-                        isHovered ? "bg-gray-400 scale-x-125" : "group-hover:bg-gray-300"
+                      className={`w-1.5 bg-gray-200 rounded-t-sm transition-colors duration-200 ${
+                        isHovered ? "bg-gray-400" : "group-hover:bg-gray-300"
                       }`}
                     ></div>
                     <div
                       style={{ height: `${bar.botPx}px` }}
-                      className={`w-1.5 bg-black rounded-b-sm transition-all duration-300 ${
-                        isHovered ? "bg-black scale-x-125 ring-1 ring-black" : ""
+                      className={`w-1.5 bg-black rounded-b-sm transition-colors duration-200 ${
+                        isHovered ? "bg-zinc-800" : ""
                       }`}
                     ></div>
                   </div>
