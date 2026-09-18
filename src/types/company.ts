@@ -24,6 +24,7 @@ export interface Company {
 }
 
 export interface MonthData {
+    id?: string;
     name: string;
     label: string;
     empty: number;

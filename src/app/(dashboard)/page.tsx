@@ -213,36 +213,74 @@ export default function DashboardOverviewPage() {
 
   // Live Sales Trend Matrix derived directly from Supabase metric_rollups history
   const liveMonthsData = useMemo(() => {
-    if (!dashboardData?.history || dashboardData.history.length === 0) {
-      return MONTHS_DATA;
+    const monthNames = [
+      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ];
+
+    // Build map of live rollups grouped by month index (0-11)
+    const monthMap = new Map<number, { revenue: number; paymentCount: number; latestDate: string }>();
+    if (dashboardData?.history && dashboardData.history.length > 0) {
+      for (const h of dashboardData.history) {
+        const d = new Date(h.metricDate);
+        if (!isNaN(d.getTime())) {
+          const mIdx = d.getMonth();
+          const existing = monthMap.get(mIdx) || { revenue: 0, paymentCount: 0, latestDate: h.metricDate };
+          monthMap.set(mIdx, {
+            revenue: existing.revenue + Number(h.revenue || 0),
+            paymentCount: existing.paymentCount + Number(h.paymentCount || 0),
+            latestDate: h.metricDate,
+          });
+        }
+      }
     }
-    const historyList = [...dashboardData.history].reverse();
-    return historyList.map((h, i) => {
-      const d = new Date(h.metricDate);
-      const name = d.toLocaleString("en-US", { month: "short" }).toUpperCase();
-      const totalRev = Number(h.revenue || 0);
-      const newRev = Math.round(totalRev * 0.35);
-      const activeRev = Math.max(0, totalRev - newRev);
-      const totalCells = 12;
-      const activeCount = Math.min(
-        8,
-        Math.max(1, Math.round((activeRev / (totalRev || 1)) * 10))
-      );
-      const newCount = Math.min(
-        4,
-        Math.max(1, Math.round((newRev / (totalRev || 1)) * 6))
-      );
-      const empty = Math.max(0, totalCells - activeCount - newCount);
+
+    return monthNames.map((name, idx) => {
+      const fallback = MONTHS_DATA[idx] || {
+        name,
+        label: `${name} 2026`,
+        empty: 6,
+        newCount: 3,
+        activeCount: 3,
+        newUser: "10k",
+        existingUser: "15k",
+        total: "$25,000",
+      };
+
+      const live = monthMap.get(idx);
+      if (live && live.revenue > 0) {
+        const totalRev = live.revenue;
+        const newRev = Math.round(totalRev * 0.35);
+        const activeRev = Math.max(0, totalRev - newRev);
+        const totalCells = 12;
+        const activeCount = Math.min(8, Math.max(1, Math.round((activeRev / (totalRev || 1)) * 9)));
+        const newCount = Math.min(4, Math.max(1, Math.round((newRev / (totalRev || 1)) * 5)));
+        const empty = Math.max(0, totalCells - activeCount - newCount);
+
+        const formatRev = (n: number) => {
+          if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}m`;
+          if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}k`;
+          return `$${n}`;
+        };
+
+        return {
+          id: `month-${name}-${idx}`,
+          name: name.toUpperCase(),
+          label: `${name} 2026`,
+          empty,
+          newCount,
+          activeCount,
+          newUser: formatRev(newRev),
+          existingUser: formatRev(activeRev),
+          total: `$${totalRev.toLocaleString()}`,
+        };
+      }
 
       return {
-        name: name || `M${i + 1}`,
-        label: d.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-        empty,
-        newCount,
-        activeCount,
-        newUser: `$${newRev.toLocaleString()}`,
-        existingUser: `$${activeRev.toLocaleString()}`,
-        total: `$${totalRev.toLocaleString()}`,
+        ...fallback,
+        id: `month-${name}-${idx}`,
+        name: name.toUpperCase(),
+        label: `${name} 2026`,
       };
     });
   }, [dashboardData?.history]);
@@ -902,11 +940,12 @@ export default function DashboardOverviewPage() {
               className="relative pl-7 pr-2 flex justify-between items-end h-56 pt-2"
             >
               {liveMonthsData.map((m, idx) => {
-                const isHovered = hoveredMonth === m.name;
+                const uniqueKey = m.id || `${m.name}-${idx}`;
+                const isHovered = hoveredMonth === uniqueKey;
                 return (
                   <div
-                    key={m.name}
-                    onMouseEnter={() => setHoveredMonth(m.name)}
+                    key={uniqueKey}
+                    onMouseEnter={() => setHoveredMonth(uniqueKey)}
                     onMouseLeave={() => setHoveredMonth(null)}
                     className="relative flex flex-col items-center gap-2 cursor-pointer group select-none"
                   >
