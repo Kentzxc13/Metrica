@@ -7,7 +7,7 @@ function isUuid(value: string): boolean {
 function normalizeCompanyKey(value: string): string {
     return value
         .toLowerCase()
-        .replace(/^c[-_]/, '')
+        .replace(/^(comp|company|c)[-_]/, '')
         .replace(/[^a-z0-9]/g, '')
         .replace(/(inc|platform|gateway|saas|tool)$/g, '');
 }

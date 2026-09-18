@@ -60,7 +60,7 @@ export function AddCommitmentModal({
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    companyId: companyId || 'comp_cloudnest',
+                    companyId: companyName || companyId || 'CloudNest',
                     meetingId: meetingId || 'bm-2',
                     title: cleanTitle,
                     status: 'in_progress',
