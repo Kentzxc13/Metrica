@@ -5,6 +5,7 @@ import { useDashboard } from '@/context/DashboardContext';
 import { INITIAL_SCREENING_STARTUPS } from '@/data/screening';
 import { StartupProspect } from '@/types/screening';
 import { StartupMemoModal } from '@/components/modals/StartupMemoModal';
+import { AddProspectModal } from '@/components/modals/AddProspectModal';
 
 export default function AiScreeningPage() {
     const {
@@ -15,23 +16,25 @@ export default function AiScreeningPage() {
         toggleBookmarkStartup
     } = useDashboard();
 
+    const [startups, setStartups] = useState<StartupProspect[]>(INITIAL_SCREENING_STARTUPS);
+    const [isAddProspectModalOpen, setIsAddProspectModalOpen] = useState<boolean>(false);
     const [screeningSectorFilter, setScreeningSectorFilter] = useState<string>('All Sectors');
     const [isSectorDropdownOpen, setIsSectorDropdownOpen] = useState<boolean>(false);
     const [selectedStartupMemo, setSelectedStartupMemo] = useState<StartupProspect | null>(null);
 
     // Dynamic sectors derived straight from startup dataset
     const dynamicSectors = useMemo(() => {
-        const unique = Array.from(new Set(INITIAL_SCREENING_STARTUPS.map(s => s.sector)));
+        const unique = Array.from(new Set(startups.map(s => s.sector)));
         return ['All Sectors', ...unique];
-    }, []);
+    }, [startups]);
 
     const getSectorCount = (sector: string) => {
-        if (sector === 'All Sectors') return INITIAL_SCREENING_STARTUPS.length;
-        return INITIAL_SCREENING_STARTUPS.filter(s => s.sector === sector).length;
+        if (sector === 'All Sectors') return startups.length;
+        return startups.filter(s => s.sector === sector).length;
     };
 
     // Filter startups for AI Investment Screening (driven by Global Search & Sector Filter)
-    const filteredStartups = INITIAL_SCREENING_STARTUPS.filter(s => {
+    const filteredStartups = startups.filter(s => {
         const matchesSearch = s.name.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
                               s.description.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
                               s.sector.toLowerCase().includes(globalSearchQuery.toLowerCase());
@@ -49,6 +52,15 @@ export default function AiScreeningPage() {
                 </div>
 
                 <div className="flex items-center gap-2.5">
+                    {/* Add Prospect Button (TC-04 & TC-05) */}
+                    <button
+                        onClick={() => setIsAddProspectModalOpen(true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-900 text-white text-xs font-semibold hover:bg-black shadow-xs transition-colors"
+                    >
+                        <span className="text-sm font-bold leading-none">+</span>
+                        <span>Add Prospect</span>
+                    </button>
+
                     {/* Dynamic Sector Filter Dropdown */}
                     <div className="relative">
                         <button
@@ -85,6 +97,9 @@ export default function AiScreeningPage() {
             <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {filteredStartups.map((startup) => {
                     const isBookmarked = bookmarkedStartupIds.includes(startup.id);
+                    const churnNum = parseFloat(startup.churnRate.replace(/[^0-9.]/g, '')) || 0;
+                    const isHighChurn = startup.isChurnWarning || churnNum > 10;
+
                     return (
                         <div
                             key={startup.id}
@@ -97,11 +112,22 @@ export default function AiScreeningPage() {
                                             {startup.initial}
                                         </div>
                                         <div>
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-2 flex-wrap">
                                                 <h3 className="text-sm font-bold text-gray-900 tracking-tight">{startup.name}</h3>
                                                 <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-md">
                                                     {startup.stage}
                                                 </span>
+                                                {startup.aiTier && (
+                                                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                                                        startup.aiTier === 'Outperforming'
+                                                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-200/70'
+                                                            : startup.aiTier === 'At Risk'
+                                                            ? 'bg-rose-100 text-rose-800 border border-rose-200/70'
+                                                            : 'bg-blue-100 text-blue-800 border border-blue-200/70'
+                                                    }`}>
+                                                        {startup.aiTier}
+                                                    </span>
+                                                )}
                                             </div>
                                             <span className="text-[11px] font-medium text-gray-400">{startup.sector}</span>
                                         </div>
@@ -133,27 +159,37 @@ export default function AiScreeningPage() {
                                     {startup.description}
                                 </p>
 
-                                {/* Financial Details Strip */}
+                                {/* Financial Details Strip (TC-06 Data Visibility) */}
                                 <div className="mt-4 grid grid-cols-4 gap-2 border border-gray-100 rounded-xl bg-gray-50/70 p-2.5">
-                                    <div>
+                                    <div title={`ARR: ${startup.arr}`}>
                                         <span className="text-[10px] uppercase font-semibold text-gray-400 tracking-wider block">ARR</span>
                                         <span className="font-mono font-bold text-gray-900 text-xs block mt-0.5">{startup.arr}</span>
                                     </div>
-                                    <div>
+                                    <div title={`YoY Growth: ${startup.yoyGrowth}`}>
                                         <span className="text-[10px] uppercase font-semibold text-gray-400 tracking-wider block">YoY Growth</span>
                                         <span className="font-mono font-bold text-emerald-600 text-xs block mt-0.5">{startup.yoyGrowth}</span>
                                     </div>
-                                    <div>
+                                    <div title={`Churn Rate: ${startup.churnRate}`}>
                                         <span className="text-[10px] uppercase font-semibold text-gray-400 tracking-wider block">Churn</span>
-                                        <span className={`font-mono font-bold text-xs block mt-0.5 ${startup.isChurnWarning ? 'text-rose-600' : 'text-gray-900'}`}>
+                                        <span className={`font-mono font-bold text-xs block mt-0.5 ${isHighChurn ? 'text-rose-600' : 'text-gray-900'}`}>
                                             {startup.churnRate}
                                         </span>
                                     </div>
-                                    <div>
+                                    <div title={`Valuation: ${startup.valuation}`}>
                                         <span className="text-[10px] uppercase font-semibold text-gray-400 tracking-wider block">Valuation</span>
                                         <span className="font-mono font-bold text-gray-900 text-xs block mt-0.5">{startup.valuation}</span>
                                     </div>
                                 </div>
+
+                                {/* High Churn Warning Alert (TC-05) */}
+                                {isHighChurn && (
+                                    <div className="mt-2.5 px-3 py-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-[11px] flex items-center gap-2 animate-in fade-in">
+                                        <span className="text-sm">⚠️</span>
+                                        <div className="leading-tight">
+                                            <span className="font-bold">High churn rate exceeds safe threshold (10%)</span>
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* AI Screening Diligence Memo Box */}
                                 <div className="mt-3.5 bg-gray-50 border border-gray-100/90 rounded-xl p-3">
@@ -220,6 +256,16 @@ export default function AiScreeningPage() {
                 onClose={() => setSelectedStartupMemo(null)}
                 isBookmarked={selectedStartupMemo ? bookmarkedStartupIds.includes(selectedStartupMemo.id) : false}
                 onToggleBookmark={toggleBookmarkStartup}
+                onShowToast={showActionToast}
+            />
+
+            {/* Add Prospect Modal (TC-04 & TC-05) */}
+            <AddProspectModal
+                isOpen={isAddProspectModalOpen}
+                onClose={() => setIsAddProspectModalOpen(false)}
+                onProspectAdded={(newProspect) => {
+                    setStartups((prev) => [newProspect, ...prev]);
+                }}
                 onShowToast={showActionToast}
             />
         </>

@@ -27,4 +27,8 @@ export interface StartupProspect {
     thesis: string;
     moat: string;
     unitEconomics: UnitEconomics;
+    aiTier?: 'Outperforming' | 'Moderate' | 'At Risk';
+    aiScore?: number;
+    aiRationale?: string;
+    highChurnWarning?: boolean;
 }
