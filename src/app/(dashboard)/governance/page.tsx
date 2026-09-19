@@ -402,25 +402,28 @@ export default function BoardGovernancePage() {
                 <div className="lg:col-span-5 flex flex-col justify-between gap-5 h-full">
                     {/* Action Panel: Prior Board Commitments Tracker */}
                     <div className="bg-white rounded-2xl border border-gray-200/80 p-5 shadow-card flex flex-col justify-between">
-                        <div className="flex items-center justify-between pb-2.5 border-b border-gray-100">
-                            <div className="flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-zinc-900 shrink-0"></span>
-                                <h3 className="text-xs uppercase font-bold tracking-wider text-gray-900 leading-none">
-                                    PRIOR BOARD COMMITMENTS
-                                </h3>
+                        <div className="flex items-center justify-between pb-3 border-b border-gray-100 gap-3">
+                            <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-zinc-900 shrink-0"></span>
+                                    <h3 className="text-xs uppercase font-bold tracking-wider text-gray-900 whitespace-nowrap">
+                                        PRIOR BOARD COMMITMENTS
+                                    </h3>
+                                </div>
+                                <div className="flex items-center gap-1.5 mt-1 pl-4">
+                                    <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200/60 px-2 py-0.5 rounded-md whitespace-nowrap">
+                                        ✓ {completedCommitments} of {totalCommitments} Delivered ({commitmentDeliveryRate}%)
+                                    </span>
+                                </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => setIsAddCommitmentOpen(true)}
-                                    className="px-2.5 py-1 text-xs font-semibold bg-white border border-gray-200 text-gray-700 hover:text-black hover:bg-gray-50 rounded-lg shadow-2xs transition-colors flex items-center gap-1 cursor-pointer"
-                                    title="Record New Board Commitment"
-                                >
-                                    <span className="text-sm font-bold leading-none">+</span> Add Commitment
-                                </button>
-                                <span className="text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200/60 px-2.5 py-1 rounded-md">
-                                    {`${completedCommitments} of ${totalCommitments} Delivered (${commitmentDeliveryRate}%)`}
-                                </span>
-                            </div>
+                            <button
+                                onClick={() => setIsAddCommitmentOpen(true)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-gray-200 text-gray-700 hover:text-black hover:bg-gray-50 text-xs font-semibold transition-colors shadow-2xs cursor-pointer whitespace-nowrap shrink-0"
+                                title="Record New Board Commitment"
+                            >
+                                <span className="text-sm font-bold leading-none">+</span>
+                                <span>Add Commitment</span>
+                            </button>
                         </div>
 
                         {/* Deliverables List: Scrollable showing commitments */}
@@ -487,25 +490,28 @@ export default function BoardGovernancePage() {
 
                     {/* Strategic Inquiries & Director's Probes */}
                     <div className="bg-white rounded-2xl border border-gray-200/80 p-5 shadow-card flex flex-col justify-between">
-                        <div className="flex items-center justify-between pb-2.5 border-b border-gray-100">
-                            <div className="flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0"></span>
-                                <h3 className="text-xs uppercase font-bold tracking-wider text-gray-900 leading-none">
-                                    DIRECTOR&apos;S STRATEGIC PROBES
-                                </h3>
+                        <div className="flex items-center justify-between pb-3 border-b border-gray-100 gap-3">
+                            <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0"></span>
+                                    <h3 className="text-xs uppercase font-bold tracking-wider text-gray-900 whitespace-nowrap">
+                                        DIRECTOR&apos;S STRATEGIC PROBES
+                                    </h3>
+                                </div>
+                                <div className="flex items-center gap-1.5 mt-1 pl-4">
+                                    <span className="text-[11px] font-medium text-gray-600 bg-gray-100 border border-gray-200/80 px-2 py-0.5 rounded-md whitespace-nowrap">
+                                        {selectedMeeting.strategicProbes?.length || 2} Inquiries Prepared
+                                    </span>
+                                </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={handleGenerateAIProbes}
-                                    disabled={isGeneratingProbes}
-                                    className="px-2.5 py-1 text-xs font-semibold bg-zinc-900 hover:bg-black text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer"
-                                >
-                                    <span>✨</span> {isGeneratingProbes ? 'Analyzing...' : 'Generate AI Probes'}
-                                </button>
-                                <span className="text-xs font-semibold text-gray-600 bg-gray-100 border border-gray-200/80 px-2.5 py-1 rounded-md">
-                                    {selectedMeeting.strategicProbes?.length || 2} Inquiries Prepared
-                                </span>
-                            </div>
+                            <button
+                                onClick={handleGenerateAIProbes}
+                                disabled={isGeneratingProbes}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-black text-white text-xs font-semibold transition-colors shadow-sm disabled:opacity-50 cursor-pointer whitespace-nowrap shrink-0"
+                            >
+                                <span className="text-amber-400 text-xs">✨</span>
+                                <span>{isGeneratingProbes ? 'Analyzing...' : 'Generate AI Probes'}</span>
+                            </button>
                         </div>
 
                         {/* Probes List: Scrollable showing 1 probe */}
