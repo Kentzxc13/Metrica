@@ -240,53 +240,34 @@ export default function BoardGovernancePage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3.5">
                     {boardMeetings.map((bm, index) => {
                         const isSelected = selectedMeetingId === bm.id;
-                        const isAllDelivered = bm.deliveryRate?.includes('100%');
                         return (
                             <div
                                 key={bm.id}
                                 onClick={() => setSelectedMeetingId(bm.id)}
-                                className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between min-h-[156px] ${isSelected
+                                className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-start min-h-[140px] ${isSelected
                                     ? 'bg-white border-zinc-900 shadow-sm ring-1 ring-zinc-900/10'
                                     : 'bg-white border-gray-200/80 hover:border-gray-300 hover:shadow-xs'
                                     }`}
                             >
-                                <div>
-                                    <div className="flex items-center justify-between">
-                                        <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-md ${isSelected ? 'bg-zinc-900 text-white' : 'bg-gray-100 text-gray-500'}`}>
-                                            Session 0{index + 1}
-                                        </span>
-                                        <div className="w-8 h-8 rounded-xl bg-black text-white font-bold text-xs flex items-center justify-center shadow-xs shrink-0">
-                                            {bm.initials}
-                                        </div>
+                                <div className="flex items-center justify-between">
+                                    <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-md ${isSelected ? 'bg-zinc-900 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                                        Session 0{index + 1}
+                                    </span>
+                                    <div className="w-8 h-8 rounded-xl bg-black text-white font-bold text-xs flex items-center justify-center shadow-xs shrink-0">
+                                        {bm.initials}
                                     </div>
-                                    <div className="mt-2.5">
-                                        <h3 className="text-sm font-bold text-gray-900 tracking-tight">
-                                            {bm.companyName}
-                                        </h3>
-                                    </div>
-                                    <p className="text-[11px] font-medium text-gray-400 mt-0.5">
-                                        {bm.nextMeetingDate.split('•')[0].trim()}
-                                    </p>
-                                    <p className="mt-2 text-xs text-gray-600 leading-relaxed line-clamp-2">
-                                        {bm.agendaTopic}
-                                    </p>
                                 </div>
-
-                                {isSelected ? (
-                                    <div className="mt-3 pt-2.5 border-t border-gray-200/80 flex items-center justify-between">
-                                        <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-gray-900">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                            <span>Active Session</span>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-400">
-                                        <span className="font-medium">{isAllDelivered ? 'All Delivered' : 'Scheduled'}</span>
-                                        {isAllDelivered && (
-                                            <span className="text-emerald-600 font-bold text-xs">✓</span>
-                                        )}
-                                    </div>
-                                )}
+                                <div className="mt-2.5">
+                                    <h3 className="text-sm font-bold text-gray-900 tracking-tight">
+                                        {bm.companyName}
+                                    </h3>
+                                </div>
+                                <p className="text-[11px] font-medium text-gray-400 mt-0.5">
+                                    {bm.nextMeetingDate.split('•')[0].trim()}
+                                </p>
+                                <p className="mt-2 text-xs text-gray-600 leading-relaxed line-clamp-2">
+                                    {bm.agendaTopic}
+                                </p>
                             </div>
                         );
                     })}
