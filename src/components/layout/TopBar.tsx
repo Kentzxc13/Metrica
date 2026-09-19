@@ -59,7 +59,7 @@ export function TopBar() {
     };
 
     return (
-        <header className="flex items-center justify-between pt-1.5 pb-1" data-purpose="top-navigation-bar">
+        <header className="flex items-center justify-between py-1" data-purpose="top-navigation-bar">
             {/* Breadcrumb */}
             <nav className="flex items-center text-xs font-medium text-gray-400 space-x-1.5">
                 <Link

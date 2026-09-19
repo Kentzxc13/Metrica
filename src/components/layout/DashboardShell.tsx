@@ -15,7 +15,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col min-w-0 min-h-screen">
-                <div className="p-4 md:p-6 lg:p-7 flex flex-col gap-5 max-w-[1680px] w-full mx-auto">
+                <div className="px-4 md:px-6 lg:px-8 pt-3.5 pb-8 flex flex-col gap-3.5 max-w-[1680px] w-full mx-auto">
                     <TopBar />
                     <main className="flex-1 flex flex-col gap-5 min-w-0" data-purpose="main-dashboard-body">
                         {children}
