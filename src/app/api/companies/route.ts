@@ -53,9 +53,9 @@ export async function GET() {
 
         const liveCompanies: Company[] = (dbCompanies || []).map((c: any) => {
             const latest = rollupsByCompany.get(c.id);
-            const rawRev = latest ? Number(latest.revenue) : 142500;
-            const rawOrders = latest ? Number(latest.payment_count) : 2420;
-            const rawCust = latest ? Number(latest.customer_count) : 1420;
+            const rawRev = latest ? Number(latest.revenue) : 54798;
+            const rawOrders = latest ? Number(latest.payment_count) : 251;
+            const rawCust = latest ? Number(latest.customer_count) : 206;
 
             const aiTier = (c.ai_tier as 'Outperforming' | 'Moderate' | 'At Risk') || 'Moderate';
             const aiScore = aiTier === 'Outperforming' ? 94 : aiTier === 'Moderate' ? 82 : 48;
