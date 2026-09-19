@@ -215,12 +215,14 @@ export default function DashboardOverviewPage() {
   // Recent Events Transaction Details Inspection Modal & Action Popover
   const [inspectTx, setInspectTx] = useState<Transaction | null>(null);
   const [activeActionTx, setActiveActionTx] = useState<Transaction | null>(null);
+  const [isTableOptionsOpen, setIsTableOptionsOpen] = useState<boolean>(false);
 
   // Close action popover and dropdown on outside click
   useEffect(() => {
     const handleOutsideClick = () => {
       setActiveActionTx(null);
       setIsPeriodDropdownOpen(false);
+      setIsTableOptionsOpen(false);
     };
     window.addEventListener("click", handleOutsideClick);
     return () => window.removeEventListener("click", handleOutsideClick);
@@ -579,11 +581,9 @@ export default function DashboardOverviewPage() {
     };
   }, [selectedCategoryPeriod, dashboardData?.history, currentCompany, transactions]);
 
-  // Table search & pagination & selection
+  // Table search & selection (4-row scrollable container)
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const pageSize = 10;
 
   // Filter transactions based on in-table search
   const filteredTransactions = transactions.filter(
@@ -593,31 +593,13 @@ export default function DashboardOverviewPage() {
       t.code.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
-  const totalPages = Math.max(1, Math.ceil(filteredTransactions.length / pageSize));
-
-  // Reset page to 1 if search query changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery]);
-
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(1);
-    }
-  }, [currentPage, totalPages]);
-
-  const paginatedTransactions = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return filteredTransactions.slice(start, start + pageSize);
-  }, [filteredTransactions, currentPage, pageSize]);
-
   const handleSelectAll = () => {
-    const pageIds = paginatedTransactions.map((t) => t.id);
-    const allSelected = pageIds.length > 0 && pageIds.every((id) => selectedRows.includes(id));
+    const allIds = filteredTransactions.map((t) => t.id);
+    const allSelected = allIds.length > 0 && allIds.every((id) => selectedRows.includes(id));
     if (allSelected) {
-      setSelectedRows((prev) => prev.filter((id) => !pageIds.includes(id)));
+      setSelectedRows((prev) => prev.filter((id) => !allIds.includes(id)));
     } else {
-      setSelectedRows((prev) => Array.from(new Set([...prev, ...pageIds])));
+      setSelectedRows((prev) => Array.from(new Set([...prev, ...allIds])));
     }
   };
 
@@ -1718,35 +1700,99 @@ export default function DashboardOverviewPage() {
               </svg>
               <span>Add Event</span>
             </button>
+
+            {/* Header Boxed 3-Dots Options Menu */}
+            <div className="relative">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsTableOptionsOpen(!isTableOptionsOpen);
+                }}
+                className={`inline-flex items-center justify-center w-7 h-7 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-400 hover:text-gray-700 shadow-2xs transition-colors cursor-pointer ${
+                  isTableOptionsOpen ? 'bg-gray-100 text-gray-900 ring-1 ring-gray-200' : ''
+                }`}
+                title="More table options"
+              >
+                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z"></path>
+                </svg>
+              </button>
+
+              {isTableOptionsOpen && (
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="absolute right-0 top-full mt-1.5 z-40 bg-white border border-gray-200 rounded-xl shadow-floating p-1.5 min-w-[160px] text-left animate-in fade-in zoom-in-95 duration-150"
+                >
+                  <button
+                    onClick={() => {
+                      const csvHeader = "ID,Code,Customer,Product,Status,Revenue\n";
+                      const csvRows = filteredTransactions.map(t => `"${t.id}","${t.code}","${t.customer}","${t.product}","${t.status}","${t.totalRevenue}"`).join("\n");
+                      const blob = new Blob([csvHeader + csvRows], { type: "text/csv;charset=utf-8;" });
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement("a");
+                      link.setAttribute("href", url);
+                      link.setAttribute("download", `events_${new Date().toISOString().slice(0, 10)}.csv`);
+                      link.click();
+                      setIsTableOptionsOpen(false);
+                      showActionToast("Exported events as CSV!");
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-gray-700 hover:bg-gray-50 hover:text-black rounded-lg font-medium transition-colors cursor-pointer"
+                  >
+                    <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
+                    </svg>
+                    <span>Export CSV</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedRows([]);
+                      setIsTableOptionsOpen(false);
+                      showActionToast("Selection cleared");
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-gray-700 hover:bg-gray-50 hover:text-black rounded-lg font-medium transition-colors cursor-pointer"
+                  >
+                    <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
+                    </svg>
+                    <span>Clear Selection</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="w-full overflow-hidden">
-          <table className="w-full text-left text-xs border-collapse table-fixed">
-            <thead>
-              <tr className="border-b border-gray-100 text-gray-400 font-semibold uppercase text-[11px]">
-                <th className="py-3 px-2 w-[4%] text-center">
-                  <input
-                    checked={
-                      paginatedTransactions.length > 0 &&
-                      paginatedTransactions.every((tx) => selectedRows.includes(tx.id))
-                    }
-                    onChange={handleSelectAll}
-                    className="rounded border-gray-300 text-black focus:ring-black h-3.5 w-3.5 cursor-pointer"
-                    type="checkbox"
-                  />
-                </th>
-                <th className="py-3 px-2.5 w-[14%]">Timestamp</th>
-                <th className="py-3 px-2.5 w-[16%]">Event Code</th>
-                <th className="py-3 px-2.5 w-[18%]">Customer</th>
-                <th className="py-3 px-2.5 w-[22%]">Product / Plan</th>
-                <th className="py-3 px-2.5 w-[12%] text-left">Status</th>
-                <th className="py-3 px-2.5 w-[10%] text-left">Revenue</th>
-                <th className="py-3 px-1 w-[4%] text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
-              {paginatedTransactions.map((tx) => {
+        {/* 4-Row Scrollable Table Container with Impeccable Bottom Vanishing Effect */}
+        <div className="relative">
+          <div
+            className="w-full overflow-x-auto overflow-y-auto max-h-[252px] custom-scrollbar select-none"
+            style={{ scrollbarWidth: "thin" }}
+          >
+            <table className="w-full text-left text-xs border-collapse table-fixed">
+              <thead className="sticky top-0 bg-white z-20">
+                <tr className="border-b border-gray-100 text-gray-400 font-semibold uppercase text-[11px] bg-white">
+                  <th className="py-3 px-2 w-[4%] text-center">
+                    <input
+                      checked={
+                        filteredTransactions.length > 0 &&
+                        filteredTransactions.every((tx) => selectedRows.includes(tx.id))
+                      }
+                      onChange={handleSelectAll}
+                      className="rounded border-gray-300 text-black focus:ring-black h-3.5 w-3.5 cursor-pointer"
+                      type="checkbox"
+                    />
+                  </th>
+                  <th className="py-3 px-2.5 w-[14%]">Timestamp</th>
+                  <th className="py-3 px-2.5 w-[16%]">Event Code</th>
+                  <th className="py-3 px-2.5 w-[18%]">Customer</th>
+                  <th className="py-3 px-2.5 w-[22%]">Product / Plan</th>
+                  <th className="py-3 px-2.5 w-[12%] text-left">Status</th>
+                  <th className="py-3 px-2.5 w-[10%] text-left">Revenue</th>
+                  <th className="py-3 px-1 w-[4%] text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
+                {filteredTransactions.map((tx, index) => {
                 const rowClass = !shouldAnimateRows
                   ? "event-row-hidden"
                   : hasAlreadyAnimated
@@ -1831,11 +1877,13 @@ export default function DashboardOverviewPage() {
                           e.stopPropagation();
                           setActiveActionTx(activeActionTx?.id === tx.id ? null : tx);
                         }}
-                        className="text-gray-400 hover:text-gray-700 p-1.5 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                        className={`inline-flex items-center justify-center w-7 h-7 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-400 hover:text-gray-700 shadow-2xs transition-colors cursor-pointer ${
+                          activeActionTx?.id === tx.id ? 'bg-gray-100 text-gray-900 ring-1 ring-gray-200' : ''
+                        }`}
                         title="Row Actions"
                       >
                         <svg
-                          className="w-4 h-4 inline"
+                          className="w-3.5 h-3.5 inline"
                           fill="currentColor"
                           viewBox="0 0 20 20"
                         >
@@ -1847,7 +1895,9 @@ export default function DashboardOverviewPage() {
                       {activeActionTx?.id === tx.id && (
                         <div
                           onClick={(e) => e.stopPropagation()}
-                          className="absolute right-1 top-10 z-40 bg-white border border-gray-200 rounded-xl shadow-floating p-1.5 min-w-[175px] text-left animate-in fade-in zoom-in-95 duration-150"
+                          className={`absolute right-1 ${
+                            index >= 3 ? "bottom-full mb-1.5" : "top-full mt-1.5"
+                          } z-40 bg-white border border-gray-200 rounded-xl shadow-floating p-1.5 min-w-[175px] text-left animate-in fade-in zoom-in-95 duration-150`}
                         >
                           <button
                             onClick={() => {
@@ -1915,71 +1965,10 @@ export default function DashboardOverviewPage() {
           </table>
         </div>
 
-        {/* Impeccable Dotted Pagination Footer */}
-        {totalPages > 1 && (
-          <div className="mt-4 pt-3.5 border-t border-gray-100 grid grid-cols-1 sm:grid-cols-3 items-center gap-3 text-xs">
-            {/* Left: Showing records summary */}
-            <div className="text-left text-gray-400 font-medium text-[11px]">
-              Showing <span className="font-semibold text-gray-700 font-mono">{(currentPage - 1) * pageSize + 1}</span>–<span className="font-semibold text-gray-700 font-mono">{Math.min(currentPage * pageSize, filteredTransactions.length)}</span> of <span className="font-semibold text-gray-700 font-mono">{filteredTransactions.length}</span> records
-            </div>
-
-            {/* Middle: Centered Sleek Dotted Pagination */}
-            <div className="flex justify-center">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gray-50 border border-gray-200/80 shadow-2xs">
-                <button
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="p-1 rounded-full text-gray-500 hover:text-black hover:bg-white disabled:opacity-25 disabled:pointer-events-none transition-all cursor-pointer"
-                  title="Previous Page"
-                  aria-label="Previous Page"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path d="M15 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2"></path>
-                  </svg>
-                </button>
-
-                {/* Dotted Page Indicators */}
-                <div className="flex items-center gap-1.5 px-1">
-                  {Array.from({ length: totalPages }).map((_, i) => {
-                    const pageNum = i + 1;
-                    const isActive = currentPage === pageNum;
-                    return (
-                      <button
-                        key={`page-dot-${pageNum}`}
-                        onClick={() => setCurrentPage(pageNum)}
-                        className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
-                          isActive
-                            ? "w-6 bg-black shadow-xs"
-                            : "w-2 bg-gray-300 hover:bg-gray-500 hover:scale-125"
-                        }`}
-                        title={`Go to page ${pageNum}`}
-                        aria-label={`Page ${pageNum}`}
-                      />
-                    );
-                  })}
-                </div>
-
-                <button
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="p-1 rounded-full text-gray-500 hover:text-black hover:bg-white disabled:opacity-25 disabled:pointer-events-none transition-all cursor-pointer"
-                  title="Next Page"
-                  aria-label="Next Page"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2"></path>
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            {/* Right: Page indicator */}
-            <div className="text-left sm:text-right text-gray-400 font-medium text-[11px]">
-              Page <span className="font-semibold text-gray-700 font-mono">{currentPage}</span> of <span className="font-semibold text-gray-700 font-mono">{totalPages}</span>
-            </div>
-          </div>
-        )}
-      </section>
+        {/* Impeccable Bottom Vanishing / Blurring Fade Overlay */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white via-white/85 to-transparent backdrop-blur-[0.5px] z-10 rounded-b-xl" />
+      </div>
+    </section>
       {/* END: RecentEventsSection */}
 
       {/* Transaction Details Modal for 3-Dots Action */}

@@ -448,9 +448,11 @@ export default function CompanyComparisonPage() {
                                             <div className="relative inline-flex items-center justify-center">
                                                 <button
                                                     onClick={() => setActiveActionMenuId(activeActionMenuId === c.id ? null : c.id)}
-                                                    className="p-1 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors flex items-center justify-center"
+                                                    className={`inline-flex items-center justify-center w-7 h-7 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-400 hover:text-gray-700 shadow-2xs transition-colors cursor-pointer ${
+                                                        activeActionMenuId === c.id ? 'bg-gray-100 text-gray-900 ring-1 ring-gray-200' : ''
+                                                    }`}
                                                     title="Company actions">
-                                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
                                                         <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z"></path>
                                                     </svg>
                                                 </button>
