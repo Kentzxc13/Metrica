@@ -19,7 +19,7 @@ export function LeftSidebar() {
 
     return (
         <aside
-            className="w-64 flex-shrink-0 sticky top-3 md:top-5 h-[calc(100vh-1.5rem)] md:h-[calc(100vh-2.5rem)] flex flex-col justify-between rounded-2xl bg-white border border-[#eaecef] p-4 shadow-sm z-30"
+            className="w-64 flex-shrink-0 h-screen sticky top-0 bg-white border-r border-gray-200/80 flex flex-col justify-between p-4 z-30 select-none"
             data-purpose="sidebar-navigation">
             {/* Top Segment: Workspace Switcher */}
             <div className="flex-shrink-0 pb-3 border-b border-gray-100/70">
@@ -153,6 +153,9 @@ export function LeftSidebar() {
                     </nav>
                 </div>
 
+                {/* Subtle Divider */}
+                <div className="border-t border-gray-100 pt-1" />
+
                 {/* Group 2: PORTFOLIO GOVERNANCE (3 items) */}
                 <div>
                     <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-2">Portfolio Governance</span>
@@ -201,6 +204,9 @@ export function LeftSidebar() {
                         </Link>
                     </nav>
                 </div>
+
+                {/* Subtle Divider */}
+                <div className="border-t border-gray-100 pt-1" />
 
                 {/* Group 3: SETTINGS (2 items) */}
                 <div>

@@ -9,13 +9,18 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     const { actionToastMessage } = useDashboard();
 
     return (
-        <div className="h-full font-sans text-dashboard-textPrimary bg-[#f3f4f7] antialiased">
-            <div className="min-h-full flex items-start p-3 md:p-5 gap-5 max-w-[1720px] mx-auto">
-                <LeftSidebar />
-                <main className="flex-1 flex flex-col gap-5 min-w-0" data-purpose="main-dashboard-body">
+        <div className="min-h-screen font-sans text-dashboard-textPrimary bg-[#f3f4f7] antialiased flex">
+            {/* Integrated Left Navigation Sidebar */}
+            <LeftSidebar />
+
+            {/* Main Content Area */}
+            <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+                <div className="px-4 md:px-6 lg:px-8 pt-3.5 pb-8 flex flex-col gap-3.5 max-w-[1680px] w-full mx-auto">
                     <TopBar />
-                    {children}
-                </main>
+                    <main className="flex-1 flex flex-col gap-5 min-w-0" data-purpose="main-dashboard-body">
+                        {children}
+                    </main>
+                </div>
             </div>
 
             {/* Global Action Notification Toast */}

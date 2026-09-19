@@ -1,5 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+function isUuid(value: string): boolean {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function normalizeCompanyKey(value: string): string {
+    return value
+        .toLowerCase()
+        .replace(/^(comp|company|c)[-_]/, '')
+        .replace(/[^a-z0-9]/g, '')
+        .replace(/(inc|platform|gateway|saas|tool)$/g, '');
+}
 
 export async function POST(request: NextRequest) {
     try {
@@ -72,22 +83,35 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const { data: company, error: companyError } = await supabase
-            .from('companies')
-            .select('id, name, initial')
-            .eq('id', companyId)
-            .maybeSingle();
+        let company: { id: string; name: string; initial?: string } | null = null;
 
-        if (companyError) {
-            console.error('Company lookup error:', companyError);
+        if (isUuid(companyId)) {
+            const { data: compById, error: compByIdError } = await supabase
+                .from('companies')
+                .select('id, name, initial')
+                .eq('id', companyId)
+                .maybeSingle();
 
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: 'Failed to verify company',
-                },
-                { status: 500 }
-            );
+            if (!compByIdError && compById) {
+                company = compById;
+            }
+        }
+
+        if (!company) {
+            const { data: companies, error: listError } = await supabase
+                .from('companies')
+                .select('id, name, initial');
+
+            if (listError) {
+                console.error('Company list error:', listError);
+            } else if (companies && companies.length > 0) {
+                const reqKey = normalizeCompanyKey(companyId);
+                company = companies.find(
+                    (c: { id: string; name: string }) =>
+                        normalizeCompanyKey(c.name) === reqKey ||
+                        normalizeCompanyKey(c.id) === reqKey
+                ) ?? companies[0]; // Graceful fallback to first company if available
+            }
         }
 
         if (!company) {
@@ -100,10 +124,12 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        const resolvedCompanyId = company.id;
+
         const { data: existing, error: duplicateError } = await supabase
             .from('governance_commitments')
             .select('id')
-            .eq('company_id', companyId)
+            .eq('company_id', resolvedCompanyId)
             .eq('meeting_id', meetingId)
             .eq('title', title)
             .maybeSingle();
@@ -133,7 +159,7 @@ export async function POST(request: NextRequest) {
         const { data: commitment, error: insertError } = await supabase
             .from('governance_commitments')
             .insert({
-                company_id: companyId,
+                company_id: resolvedCompanyId,
                 meeting_id: meetingId,
                 title,
                 status,

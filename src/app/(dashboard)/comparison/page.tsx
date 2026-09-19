@@ -4,7 +4,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useDashboard } from '@/context/DashboardContext';
-import { COMPANIES } from '@/data/companies';
+// Mock fallback commented out
+// import { COMPANIES } from '@/data/companies';
 import { Company } from '@/types/company';
 import { AiScreeningModal } from '@/components/modals/AiScreeningModal';
 
@@ -17,8 +18,10 @@ export default function CompanyComparisonPage() {
     const {
         selectedCompanyId,
         setSelectedCompanyId,
+        companies,
         globalSearchQuery,
-        showActionToast
+        showActionToast,
+        updateCompanyHealth,
     } = useDashboard();
 
     // Benchmark matrix one-time animation state across navigation
@@ -70,7 +73,7 @@ export default function CompanyComparisonPage() {
     const [modalCompany, setModalCompany] = useState<Company | null>(null);
 
     // Filter companies for benchmark matrix (driven by Global Search & Tier Filter)
-    const filteredCompanies = COMPANIES.filter(c => {
+    const filteredCompanies = companies.filter(c => {
         const matchesSearch = c.name.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
                               c.type.toLowerCase().includes(globalSearchQuery.toLowerCase());
         const matchesTier = comparisonTierFilter === 'All' || c.aiTier === comparisonTierFilter;
@@ -103,25 +106,25 @@ export default function CompanyComparisonPage() {
                 </div>
 
                 <div className="flex items-center gap-2.5">
-                    {/* Export CSV */}
-                    <button
-                        onClick={() => showActionToast('Portfolio Benchmark CSV exported successfully!')}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-semibold transition-colors">
-                        <svg className="w-3.5 h-3.5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
-                        </svg>
-                        <span>Export CSV</span>
-                    </button>
-
-                    {/* Back to Dashboard Button */}
+                    {/* Back to Dashboard Button (Secondary Navigation) */}
                     <Link
                         href="/"
-                        className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-black text-white text-xs font-semibold hover:bg-zinc-800 transition-colors shadow-sm">
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-gray-200 text-gray-700 hover:text-black hover:bg-gray-50 text-xs font-medium transition-colors shadow-2xs cursor-pointer">
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path d="M10 19l-7-7m0 0l7-7m-7 7h18" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
                         </svg>
                         <span>Back to Dashboard</span>
                     </Link>
+
+                    {/* Export CSV (Primary Action - Standard Black) */}
+                    <button
+                        onClick={() => showActionToast('Portfolio Benchmark CSV exported successfully!')}
+                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-zinc-900 text-white text-xs font-semibold hover:bg-black transition-colors shadow-sm cursor-pointer">
+                        <svg className="w-3.5 h-3.5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
+                        </svg>
+                        <span>Export CSV</span>
+                    </button>
                 </div>
             </section>
             {/* END: PageHeadingAndControls */}
@@ -281,26 +284,26 @@ export default function CompanyComparisonPage() {
                             </span>
                         )}
 
-                        {/* Tier Filter Tabs (Same design as Cap Table page) */}
-                        <div className="flex items-center bg-gray-50 border border-gray-200/80 p-1 rounded-xl gap-1">
+                        {/* Tier Filter Tabs */}
+                        <div className="inline-flex items-center rounded-xl bg-gray-100 p-0.5 text-xs font-medium text-gray-600">
                             {(['All', 'Outperforming', 'Moderate', 'At Risk'] as const).map(tier => {
                                 const count = tier === 'All'
-                                    ? COMPANIES.length
-                                    : COMPANIES.filter(c => c.aiTier === tier).length;
+                                    ? companies.length
+                                    : companies.filter((c) => c.aiTier === tier).length;
                                 const isActive = comparisonTierFilter === tier;
                                 return (
                                     <button
                                         key={tier}
                                         onClick={() => setComparisonTierFilter(tier)}
-                                        className={`px-3 py-1 text-xs rounded-lg font-medium transition-all ${
+                                        className={`px-3 py-1 rounded-lg text-xs transition-all cursor-pointer ${
                                             isActive
-                                                ? 'bg-gray-900 text-white shadow-xs'
-                                                : 'text-gray-600 hover:text-gray-900 hover:bg-white'
+                                                ? 'bg-white text-black font-semibold shadow-xs'
+                                                : 'hover:text-black'
                                         }`}
                                     >
                                         <span>{tier === 'All' ? 'All Tiers' : tier}</span>
                                         <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full ${
-                                            isActive ? 'bg-white/20 text-white' : 'bg-gray-200/70 text-gray-600'
+                                            isActive ? 'bg-gray-100 text-gray-900 font-medium' : 'bg-gray-200/70 text-gray-500'
                                         }`}>
                                             {count}
                                         </span>
@@ -446,9 +449,11 @@ export default function CompanyComparisonPage() {
                                             <div className="relative inline-flex items-center justify-center">
                                                 <button
                                                     onClick={() => setActiveActionMenuId(activeActionMenuId === c.id ? null : c.id)}
-                                                    className="p-1 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors flex items-center justify-center"
+                                                    className={`inline-flex items-center justify-center w-7 h-7 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-400 hover:text-gray-700 shadow-2xs transition-colors cursor-pointer ${
+                                                        activeActionMenuId === c.id ? 'bg-gray-100 text-gray-900 ring-1 ring-gray-200' : ''
+                                                    }`}
                                                     title="Company actions">
-                                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
                                                         <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z"></path>
                                                     </svg>
                                                 </button>
@@ -495,6 +500,44 @@ export default function CompanyComparisonPage() {
                                                             </svg>
                                                             <span>Copy Metric Summary</span>
                                                         </button>
+                                                        <div className="border-t border-gray-100 my-1"></div>
+                                                        {c.aiTier !== 'At Risk' ? (
+                                                            <button
+                                                                onClick={() => {
+                                                                    updateCompanyHealth(c.id, {
+                                                                        aiTier: 'At Risk',
+                                                                        churnRate: '16.8%',
+                                                                        highChurnWarning: true,
+                                                                        aiRationale: 'Critical churn threshold exceeded (>10%). Unit economics remediation required.',
+                                                                        aiScore: 48,
+                                                                    });
+                                                                    setActiveActionMenuId(null);
+                                                                }}
+                                                                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer">
+                                                                <svg className="w-3.5 h-3.5 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
+                                                                </svg>
+                                                                <span>Simulate At Risk Drop</span>
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                onClick={() => {
+                                                                    updateCompanyHealth(c.id, {
+                                                                        aiTier: 'Outperforming',
+                                                                        churnRate: '2.1%',
+                                                                        highChurnWarning: false,
+                                                                        aiRationale: 'Exceptional net expansion (118% NRR) and industry-low churn (2.1%).',
+                                                                        aiScore: 94,
+                                                                    });
+                                                                    setActiveActionMenuId(null);
+                                                                }}
+                                                                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-emerald-600 hover:bg-emerald-50 transition-colors cursor-pointer">
+                                                                <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
+                                                                </svg>
+                                                                <span>Restore to Outperforming</span>
+                                                            </button>
+                                                        )}
                                                         <div className="border-t border-gray-100 my-1"></div>
                                                         <button
                                                             onClick={() => {

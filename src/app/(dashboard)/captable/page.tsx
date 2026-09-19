@@ -100,7 +100,7 @@ export default function CapTableOwnershipPage() {
                         onClick={() => {
                             showActionToast('Cap Table & Ownership Matrix exported to CSV.');
                         }}
-                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-[#1e2329] text-white text-xs font-medium hover:bg-black transition-colors shadow-sm"
+                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-zinc-900 text-white text-xs font-semibold hover:bg-black transition-colors shadow-sm cursor-pointer"
                     >
                         <svg className="w-3.5 h-3.5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
@@ -246,7 +246,7 @@ export default function CapTableOwnershipPage() {
                     </div>
 
                     {/* Stage Filter Tabs (Placed inside the table container) */}
-                    <div className="flex items-center bg-gray-50 border border-gray-200/80 p-1 rounded-xl gap-1">
+                    <div className="inline-flex items-center rounded-xl bg-gray-100 p-0.5 text-xs font-medium text-gray-600">
                         {(['All', 'Series A', 'Seed'] as const).map(stage => {
                             const count = stage === 'All' 
                                 ? capTableHoldings.length 
@@ -256,15 +256,15 @@ export default function CapTableOwnershipPage() {
                                 <button
                                     key={stage}
                                     onClick={() => setCapTableStageFilter(stage)}
-                                    className={`px-3 py-1 text-xs rounded-lg font-medium transition-all ${
+                                    className={`px-3 py-1 rounded-lg text-xs transition-all cursor-pointer ${
                                         isActive 
-                                            ? 'bg-gray-900 text-white shadow-xs' 
-                                            : 'text-gray-600 hover:text-gray-900 hover:bg-white'
+                                            ? 'bg-white text-black font-semibold shadow-xs' 
+                                            : 'hover:text-black'
                                     }`}
                                 >
                                     <span>{stage === 'All' ? 'All Stages' : stage}</span>
                                     <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full ${
-                                        isActive ? 'bg-white/20 text-white' : 'bg-gray-200/70 text-gray-600'
+                                        isActive ? 'bg-gray-100 text-gray-900 font-medium' : 'bg-gray-200/70 text-gray-500'
                                     }`}>
                                         {count}
                                     </span>
@@ -371,10 +371,10 @@ export default function CapTableOwnershipPage() {
                                                 e.stopPropagation();
                                                 setSelectedHoldingForModal(h);
                                             }}
-                                            className="text-gray-400 hover:text-gray-700 p-1.5 rounded-lg hover:bg-gray-100 transition-colors inline-flex items-center justify-center"
+                                            className="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-400 hover:text-gray-700 shadow-2xs transition-colors cursor-pointer"
                                             title="Inspect Cap Table & Pro-Rata"
                                         >
-                                            <svg className="w-4 h-4 inline" fill="currentColor" viewBox="0 0 20 20">
+                                            <svg className="w-3.5 h-3.5 inline" fill="currentColor" viewBox="0 0 20 20">
                                                 <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z"></path>
                                             </svg>
                                         </button>

@@ -58,22 +58,22 @@ export default function HelpPage() {
                 </div>
                 <div className="flex items-center gap-2.5">
                     <button
-                        onClick={() => showActionToast('Documentation export generated (PDF).')}
-                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white border border-gray-200/80 text-gray-700 text-xs font-medium hover:bg-gray-50 transition-colors shadow-xs"
+                        onClick={() => showActionToast('Concierge support ticket initiated for Aris Vance.')}
+                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white border border-gray-200 text-gray-700 hover:text-black hover:bg-gray-50 text-xs font-medium transition-colors shadow-2xs cursor-pointer"
                     >
                         <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
-                        </svg>
-                        <span>Export Docs</span>
-                    </button>
-                    <button
-                        onClick={() => showActionToast('Concierge support ticket initiated for Aris Vance.')}
-                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-[#1e2329] text-white text-xs font-medium hover:bg-black transition-colors shadow-sm"
-                    >
-                        <svg className="w-3.5 h-3.5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
                         </svg>
                         <span>Contact Support</span>
+                    </button>
+                    <button
+                        onClick={() => showActionToast('Documentation export generated (PDF).')}
+                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-zinc-900 text-white text-xs font-semibold hover:bg-black transition-colors shadow-sm cursor-pointer"
+                    >
+                        <svg className="w-3.5 h-3.5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
+                        </svg>
+                        <span>Export Docs</span>
                     </button>
                 </div>
             </section>

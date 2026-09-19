@@ -20,12 +20,15 @@ export function TopBar() {
         dismissAlert,
         messages,
         unreadMessagesCount,
-        markAllMessagesRead
+        markAllMessagesRead,
+        markMessageRead
     } = useDashboard();
 
     const [isNotificationsOpen, setIsNotificationsOpen] = useState<boolean>(false);
     const [isMessagesOpen, setIsMessagesOpen] = useState<boolean>(false);
     const searchInputRef = useRef<HTMLInputElement>(null);
+    const notificationsRef = useRef<HTMLDivElement>(null);
+    const messagesRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -34,8 +37,22 @@ export function TopBar() {
                 searchInputRef.current?.focus();
             }
         };
+
+        const handleClickOutside = (e: MouseEvent) => {
+            if (notificationsRef.current && !notificationsRef.current.contains(e.target as Node)) {
+                setIsNotificationsOpen(false);
+            }
+            if (messagesRef.current && !messagesRef.current.contains(e.target as Node)) {
+                setIsMessagesOpen(false);
+            }
+        };
+
         window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
     }, []);
 
     const getPageTitle = () => {
@@ -59,7 +76,7 @@ export function TopBar() {
     };
 
     return (
-        <header className="flex items-center justify-between pt-1.5 pb-1" data-purpose="top-navigation-bar">
+        <header className="flex items-center justify-between py-1" data-purpose="top-navigation-bar">
             {/* Breadcrumb */}
             <nav className="flex items-center text-xs font-medium text-gray-400 space-x-1.5">
                 <Link
@@ -108,19 +125,27 @@ export function TopBar() {
                 </div>
 
                 {/* Notification Bell with Floating Popover */}
-                <div className="relative">
+                <div ref={notificationsRef} className="relative">
                     <button
                         onClick={() => {
-                            setIsNotificationsOpen(!isNotificationsOpen);
+                            const nextOpen = !isNotificationsOpen;
+                            setIsNotificationsOpen(nextOpen);
                             setIsMessagesOpen(false);
+                            if (nextOpen && unreadAlertsCount > 0) {
+                                markAllAlertsRead(true);
+                            }
                         }}
-                        className="relative w-8 h-8 rounded-xl bg-white border border-gray-200 flex items-center justify-center text-gray-500 hover:text-gray-900 hover:border-gray-300 transition-colors shadow-sm"
+                        className={`relative w-8 h-8 rounded-xl border flex items-center justify-center transition-all shadow-2xs cursor-pointer active:scale-95 ${
+                            isNotificationsOpen
+                                ? 'bg-gray-100 text-gray-900 border-gray-300 shadow-inner'
+                                : 'bg-white border-gray-200 text-gray-500 hover:text-gray-900 hover:border-gray-300'
+                        }`}
                         title="System & Risk Notifications">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8"></path>
                         </svg>
                         {unreadAlertsCount > 0 && (
-                            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white">
+                            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white animate-in zoom-in-50 duration-150 transition-transform">
                                 {unreadAlertsCount}
                             </span>
                         )}
@@ -128,27 +153,32 @@ export function TopBar() {
 
                     {/* Floating Notifications Popover */}
                     {isNotificationsOpen && (
-                        <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white rounded-2xl border border-gray-200 shadow-floating p-4 z-50 text-left animate-in fade-in zoom-in-95">
+                        <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white rounded-2xl border border-gray-200 shadow-floating p-4 z-50 text-left animate-in fade-in zoom-in-95 duration-150">
                             <div className="flex items-center justify-between pb-3 border-b border-gray-100">
                                 <div className="flex items-center gap-2">
                                     <h3 className="font-bold text-gray-900 text-sm">Notifications</h3>
-                                    {unreadAlertsCount > 0 && (
+                                    {unreadAlertsCount > 0 ? (
                                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-600">
                                             {unreadAlertsCount} new
+                                        </span>
+                                    ) : (
+                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/60 flex items-center gap-1">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                            All caught up
                                         </span>
                                     )}
                                 </div>
                                 {unreadAlertsCount > 0 && (
                                     <button
-                                        onClick={markAllAlertsRead}
-                                        className="text-[11px] font-medium text-gray-400 hover:text-gray-700 transition-colors">
+                                        onClick={() => markAllAlertsRead(false)}
+                                        className="text-[11px] font-medium text-gray-400 hover:text-gray-700 transition-colors cursor-pointer">
                                         Mark all read
                                     </button>
                                 )}
                             </div>
 
                             {/* Alerts List */}
-                            <div className="divide-y divide-gray-100 max-h-80 overflow-y-auto mt-1 -mx-2 px-2">
+                            <div className="divide-y divide-gray-100 max-h-80 overflow-y-auto mt-1 -mx-2 px-2 custom-scrollbar">
                                 {alerts.map((alert) => (
                                     <div
                                         key={alert.id}
@@ -163,8 +193,8 @@ export function TopBar() {
                                             }
                                             setIsNotificationsOpen(false);
                                         }}
-                                        className={`py-3 px-2 rounded-xl transition-colors cursor-pointer flex gap-3 ${
-                                            !alert.isRead ? 'bg-gray-50/70 hover:bg-gray-100/70' : 'hover:bg-gray-50/40 opacity-70'
+                                        className={`py-3 px-2.5 rounded-xl transition-colors cursor-pointer flex gap-3 hover:bg-gray-50/80 ${
+                                            !alert.isRead ? 'bg-rose-50/30' : ''
                                         }`}>
                                         {/* Alert Icon */}
                                         <div className="flex-shrink-0 mt-0.5">
@@ -192,8 +222,13 @@ export function TopBar() {
                                         {/* Alert Content */}
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center justify-between gap-1">
-                                                <span className="font-semibold text-xs text-gray-900 truncate">{alert.title}</span>
-                                                <span className="text-[10px] text-gray-400 whitespace-nowrap">{alert.time}</span>
+                                                <div className="flex items-center gap-1.5 min-w-0">
+                                                    {!alert.isRead && (
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0"></span>
+                                                    )}
+                                                    <span className="font-semibold text-xs text-gray-900 truncate">{alert.title}</span>
+                                                </div>
+                                                <span className="text-[10px] text-gray-400 whitespace-nowrap shrink-0">{alert.time}</span>
                                             </div>
                                             <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">{alert.message}</p>
                                             <div className="flex items-center justify-between mt-1.5">
@@ -225,7 +260,7 @@ export function TopBar() {
                                 </Link>
                                 <button
                                     onClick={() => setIsNotificationsOpen(false)}
-                                    className="text-gray-400 hover:text-gray-600 text-[11px]">
+                                    className="text-gray-400 hover:text-gray-600 text-[11px] cursor-pointer">
                                     Close
                                 </button>
                             </div>
@@ -234,19 +269,27 @@ export function TopBar() {
                 </div>
 
                 {/* Message/Inbox Button with Floating Popover */}
-                <div className="relative">
+                <div ref={messagesRef} className="relative">
                     <button
                         onClick={() => {
-                            setIsMessagesOpen(!isMessagesOpen);
+                            const nextOpen = !isMessagesOpen;
+                            setIsMessagesOpen(nextOpen);
                             setIsNotificationsOpen(false);
+                            if (nextOpen && unreadMessagesCount > 0) {
+                                markAllMessagesRead(true);
+                            }
                         }}
-                        className="relative w-8 h-8 rounded-xl bg-white border border-gray-200 flex items-center justify-center text-gray-500 hover:text-gray-900 hover:border-gray-300 transition-colors shadow-sm"
+                        className={`relative w-8 h-8 rounded-xl border flex items-center justify-center transition-all shadow-2xs cursor-pointer active:scale-95 ${
+                            isMessagesOpen
+                                ? 'bg-gray-100 text-gray-900 border-gray-300 shadow-inner'
+                                : 'bg-white border-gray-200 text-gray-500 hover:text-gray-900 hover:border-gray-300'
+                        }`}
                         title="Team & Investor Messages">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8"></path>
                         </svg>
                         {unreadMessagesCount > 0 && (
-                            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-gray-900 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white">
+                            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-zinc-900 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white animate-in zoom-in-50 duration-150 transition-transform">
                                 {unreadMessagesCount}
                             </span>
                         )}
@@ -254,39 +297,43 @@ export function TopBar() {
 
                     {/* Floating Messages Popover */}
                     {isMessagesOpen && (
-                        <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white rounded-2xl border border-gray-200 shadow-floating p-4 z-50 text-left animate-in fade-in zoom-in-95">
+                        <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white rounded-2xl border border-gray-200 shadow-floating p-4 z-50 text-left animate-in fade-in zoom-in-95 duration-150">
                             <div className="flex items-center justify-between pb-3 border-b border-gray-100">
                                 <div className="flex items-center gap-2">
                                     <h3 className="font-bold text-gray-900 text-sm">Inbox</h3>
-                                    {unreadMessagesCount > 0 && (
+                                    {unreadMessagesCount > 0 ? (
                                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-800">
                                             {unreadMessagesCount} unread
+                                        </span>
+                                    ) : (
+                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600 border border-gray-200/60 flex items-center gap-1">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                                            All caught up
                                         </span>
                                     )}
                                 </div>
                                 {unreadMessagesCount > 0 && (
                                     <button
-                                        onClick={markAllMessagesRead}
-                                        className="text-[11px] font-medium text-gray-400 hover:text-gray-700 transition-colors">
+                                        onClick={() => markAllMessagesRead(false)}
+                                        className="text-[11px] font-medium text-gray-400 hover:text-gray-700 transition-colors cursor-pointer">
                                         Mark all read
                                     </button>
                                 )}
                             </div>
 
                             {/* Messages List */}
-                            <div className="divide-y divide-gray-100 max-h-80 overflow-y-auto mt-1 -mx-2 px-2">
+                            <div className="divide-y divide-gray-100 max-h-80 overflow-y-auto mt-1 -mx-2 px-2 custom-scrollbar">
                                 {messages.map((msg) => (
                                     <div
                                         key={msg.id}
                                         onClick={() => {
-                                            showActionToast(`Opened message from ${msg.sender}`);
+                                            markMessageRead(msg.id);
+                                            showActionToast(`Viewing message from ${msg.sender}: "${msg.subject}"`);
                                             setIsMessagesOpen(false);
                                         }}
-                                        className={`py-3 px-2 rounded-xl transition-colors cursor-pointer flex gap-3 ${
-                                            !msg.isRead ? 'bg-gray-50/70 hover:bg-gray-100/70' : 'hover:bg-gray-50/40 opacity-70'
-                                        }`}>
+                                        className="py-3 px-2.5 rounded-xl transition-colors cursor-pointer flex gap-3 hover:bg-gray-50/80">
                                         {/* Initials Avatar */}
-                                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white text-xs font-bold flex items-center justify-center">
+                                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white text-xs font-bold flex items-center justify-center shadow-2xs">
                                             {msg.initials}
                                         </div>
 
@@ -310,15 +357,15 @@ export function TopBar() {
                             <div className="pt-3 border-t border-gray-100 mt-2 flex items-center justify-between text-xs">
                                 <button
                                     onClick={() => {
-                                        showActionToast('Compose modal initialized.');
+                                        showActionToast('Compose direct message modal initialized.');
                                         setIsMessagesOpen(false);
                                     }}
-                                    className="text-gray-900 hover:text-black font-semibold text-[11px] transition-colors">
+                                    className="text-gray-900 hover:text-black font-semibold text-[11px] transition-colors cursor-pointer">
                                     + New Direct Message
                                 </button>
                                 <button
                                     onClick={() => setIsMessagesOpen(false)}
-                                    className="text-gray-400 hover:text-gray-600 text-[11px]">
+                                    className="text-gray-400 hover:text-gray-600 text-[11px] cursor-pointer">
                                     Close
                                 </button>
                             </div>

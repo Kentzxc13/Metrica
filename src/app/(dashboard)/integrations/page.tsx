@@ -154,7 +154,7 @@ export default function IntegrationsPage() {
                 <div className="flex items-center gap-2.5">
                     <button
                         onClick={handleTriggerRefresh}
-                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white border border-gray-200/80 text-gray-700 text-xs font-medium hover:bg-gray-50 transition-colors shadow-xs"
+                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white border border-gray-200 text-gray-700 hover:text-black hover:bg-gray-50 text-xs font-medium transition-colors shadow-2xs cursor-pointer"
                     >
                         <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
@@ -163,7 +163,7 @@ export default function IntegrationsPage() {
                     </button>
                     <button
                         onClick={() => showActionToast('New API Ingestion Key provisioned: mtr_live_•••••••')}
-                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-[#1e2329] text-white text-xs font-medium hover:bg-black transition-colors shadow-sm"
+                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-zinc-900 text-white text-xs font-semibold hover:bg-black transition-colors shadow-sm cursor-pointer"
                     >
                         <svg className="w-3.5 h-3.5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path d="M12 4v16m8-8H4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
@@ -185,17 +185,17 @@ export default function IntegrationsPage() {
                     </div>
 
                     {/* Protocol Filter Tabs */}
-                    <div className="flex items-center gap-1 p-1 bg-gray-50 border border-gray-200/60 rounded-xl text-xs">
+                    <div className="inline-flex items-center rounded-xl bg-gray-100 p-0.5 text-xs font-medium text-gray-600">
                         {(['All', 'Webhooks', 'Stripe', 'GraphQL', 'OAuth'] as const).map((proto) => {
                             const isActive = filterProtocol === proto;
                             return (
                                 <button
                                     key={proto}
                                     onClick={() => setFilterProtocol(proto)}
-                                    className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
+                                    className={`px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
                                         isActive
-                                            ? 'bg-black text-white shadow-xs font-semibold'
-                                            : 'text-gray-600 hover:text-black hover:bg-gray-200/60'
+                                            ? 'bg-white text-black font-semibold shadow-xs'
+                                            : 'hover:text-black'
                                     }`}
                                 >
                                     {proto}
@@ -280,15 +280,13 @@ export default function IntegrationsPage() {
                                         <div className="relative inline-flex justify-center" ref={activeMenuId === pipe.id ? menuRef : undefined}>
                                             <button
                                                 onClick={() => setActiveMenuId(activeMenuId === pipe.id ? null : pipe.id)}
-                                                className={`inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition-colors ${
+                                                className={`inline-flex items-center justify-center w-7 h-7 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-400 hover:text-gray-700 shadow-2xs transition-colors cursor-pointer ${
                                                     activeMenuId === pipe.id ? 'bg-gray-100 text-gray-900 ring-1 ring-gray-200' : ''
                                                 }`}
                                                 title="More Actions"
                                             >
-                                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                                    <circle cx="5" cy="12" r="2" />
-                                                    <circle cx="12" cy="12" r="2" />
-                                                    <circle cx="19" cy="12" r="2" />
+                                                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z"></path>
                                                 </svg>
                                             </button>
 

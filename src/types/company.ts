@@ -24,6 +24,7 @@ export interface Company {
 }
 
 export interface MonthData {
+    id?: string;
     name: string;
     label: string;
     empty: number;
@@ -49,10 +50,20 @@ export interface Transaction {
     code: string;
     customer: string;
     product: string;
-    status: 'Success' | 'Pending' | 'Refunded' | 'Duplicated';
+    status: 'Success' | 'Pending' | 'Refunded' | 'Duplicated' | 'Failed';
     qty?: number;
     unitPrice?: string;
     totalRevenue: string;
+    amount?: number;
     timestamp?: string;
+    payment_timestamp?: string;
     relativeTime?: string;
+    verification_hash?: string | null;
+    raw_payload?: {
+        geo?: string;
+        cardBrand?: string;
+        cardLast4?: string;
+        invoiceId?: string;
+        [key: string]: any;
+    };
 }

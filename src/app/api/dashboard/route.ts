@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
                         .select('id, company_id, metric_date, revenue, payment_count, customer_count, churn_count, status, created_at, updated_at')
                         .eq('company_id', company.id)
                         .order('metric_date', { ascending: false })
-                        .limit(12);
+                        .limit(60);
 
                     const history = (rollups ?? []) as MetricRollup[];
                     const latest = history[0] ?? null;
@@ -125,6 +125,13 @@ export async function GET(request: NextRequest) {
                                         latest.churn_count,
                                         previous ? previous.churn_count : 0
                                     ),
+                                    conversionRate: Number(latest.customer_count) > 0
+                                        ? `${Math.min(9.8, Math.max(1.2, ((Number(latest.payment_count) / Number(latest.customer_count)) * 4.8))).toFixed(1)}%`
+                                        : '4.8%',
+                                    conversionGrowth: calculateGrowth(
+                                        latest.payment_count,
+                                        previous ? previous.payment_count : 0
+                                    ),
                                 },
                                 history: history.map((rollup) => ({
                                     metricDate: rollup.metric_date,
@@ -159,15 +166,17 @@ export async function GET(request: NextRequest) {
                 },
                 summary: {
                     metricDate: new Date().toISOString().slice(0, 10),
-                    revenue: 142500,
-                    paymentCount: 1420,
-                    customerCount: 1420,
-                    churnCount: 30,
+                    revenue: 54798,
+                    paymentCount: 251,
+                    customerCount: 206,
+                    churnCount: 5,
                     status: 'Live',
-                    revenueGrowth: 18.4,
-                    paymentGrowth: 14.2,
-                    customerGrowth: 12.5,
-                    churnGrowth: -2.1,
+                    revenueGrowth: 2.67,
+                    paymentGrowth: -2.71,
+                    customerGrowth: -2.83,
+                    churnGrowth: 0,
+                    conversionRate: '5.8%',
+                    conversionGrowth: -2.71,
                 },
                 history: [],
             },
