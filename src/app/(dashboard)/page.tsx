@@ -733,7 +733,7 @@ export default function DashboardOverviewPage() {
                 `Exported ${currentCompany.name} metrics report as CSV.`,
               )
             }
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-[#1e2329] text-white text-xs font-medium hover:bg-black transition-colors shadow-sm"
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-zinc-900 text-white text-xs font-semibold hover:bg-black transition-colors shadow-sm cursor-pointer"
           >
             <svg
               className="w-3.5 h-3.5 text-gray-300"

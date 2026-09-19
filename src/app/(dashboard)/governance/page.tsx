@@ -221,9 +221,22 @@ export default function BoardGovernancePage() {
     return (
         <div className="flex flex-col gap-5 pb-8">
             {/* Section 1: Page Heading */}
-            <section data-purpose="governance-header-controls">
-                <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Board Governance &amp; Cadence</h1>
-                <p className="text-xs text-gray-500 mt-1">Quarterly board meetings, management commitments &amp; institutional governance pack</p>
+            <section data-purpose="governance-header-controls" className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Board Governance &amp; Cadence</h1>
+                    <p className="text-xs text-gray-500 mt-1">Quarterly board meetings, management commitments &amp; institutional governance pack</p>
+                </div>
+                <div className="flex items-center gap-2.5">
+                    <button
+                        onClick={() => showActionToast('Board Governance & Audit Pack exported to PDF.')}
+                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-zinc-900 text-white text-xs font-semibold hover:bg-black transition-colors shadow-sm cursor-pointer"
+                    >
+                        <svg className="w-3.5 h-3.5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
+                        </svg>
+                        <span>Export Governance Pack</span>
+                    </button>
+                </div>
             </section>
 
             {/* Section 2: Quarterly Meeting Cadence Schedule Timeline Strip (Master Selector) */}
@@ -412,7 +425,7 @@ export default function BoardGovernancePage() {
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={() => setIsAddCommitmentOpen(true)}
-                                    className="px-2.5 py-1 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                                    className="px-2.5 py-1 text-xs font-semibold bg-white border border-gray-200 text-gray-700 hover:text-black hover:bg-gray-50 rounded-lg shadow-2xs transition-colors flex items-center gap-1 cursor-pointer"
                                     title="Record New Board Commitment"
                                 >
                                     <span className="text-sm font-bold leading-none">+</span> Add Commitment

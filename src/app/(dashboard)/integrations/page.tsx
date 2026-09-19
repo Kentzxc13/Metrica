@@ -154,7 +154,7 @@ export default function IntegrationsPage() {
                 <div className="flex items-center gap-2.5">
                     <button
                         onClick={handleTriggerRefresh}
-                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white border border-gray-200/80 text-gray-700 text-xs font-medium hover:bg-gray-50 transition-colors shadow-xs"
+                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white border border-gray-200 text-gray-700 hover:text-black hover:bg-gray-50 text-xs font-medium transition-colors shadow-2xs cursor-pointer"
                     >
                         <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
@@ -163,7 +163,7 @@ export default function IntegrationsPage() {
                     </button>
                     <button
                         onClick={() => showActionToast('New API Ingestion Key provisioned: mtr_live_•••••••')}
-                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-[#1e2329] text-white text-xs font-medium hover:bg-black transition-colors shadow-sm"
+                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-zinc-900 text-white text-xs font-semibold hover:bg-black transition-colors shadow-sm cursor-pointer"
                     >
                         <svg className="w-3.5 h-3.5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path d="M12 4v16m8-8H4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>

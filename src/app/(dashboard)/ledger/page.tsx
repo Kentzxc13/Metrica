@@ -292,21 +292,11 @@ export default function EventLedgerPage() {
                 </div>
 
                 <div className="flex items-center gap-2.5">
-                    {/* Export CSV */}
-                    <button
-                        onClick={handleExportLedgerCsv}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-semibold transition-colors">
-                        <svg className="w-3.5 h-3.5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
-                        </svg>
-                        <span>Export Ledger</span>
-                    </button>
-
-                    {/* Event Category Filter Dropdown */}
+                    {/* Event Category Filter Dropdown (White Selector) */}
                     <div className="relative">
                         <button
                             onClick={() => setIsLedgerDropdownOpen(!isLedgerDropdownOpen)}
-                            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-gray-200 text-xs font-medium text-gray-700 hover:bg-gray-50 shadow-sm transition-colors">
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-gray-200 text-xs font-medium text-gray-700 hover:text-black hover:bg-gray-50 shadow-2xs transition-colors cursor-pointer">
                             <span>{ledgerCategoryFilter} ({getLedgerCategoryCount(ledgerCategoryFilter)})</span>
                             <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
@@ -331,6 +321,16 @@ export default function EventLedgerPage() {
                             </div>
                         )}
                     </div>
+
+                    {/* Export Ledger (Primary Action - Standard Black) */}
+                    <button
+                        onClick={handleExportLedgerCsv}
+                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-zinc-900 text-white text-xs font-semibold hover:bg-black transition-colors shadow-sm cursor-pointer">
+                        <svg className="w-3.5 h-3.5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
+                        </svg>
+                        <span>Export Ledger</span>
+                    </button>
                 </div>
             </section>
 

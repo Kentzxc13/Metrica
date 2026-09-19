@@ -105,25 +105,25 @@ export default function CompanyComparisonPage() {
                 </div>
 
                 <div className="flex items-center gap-2.5">
-                    {/* Export CSV */}
-                    <button
-                        onClick={() => showActionToast('Portfolio Benchmark CSV exported successfully!')}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-semibold transition-colors">
-                        <svg className="w-3.5 h-3.5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
-                        </svg>
-                        <span>Export CSV</span>
-                    </button>
-
-                    {/* Back to Dashboard Button */}
+                    {/* Back to Dashboard Button (Secondary Navigation) */}
                     <Link
                         href="/"
-                        className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-black text-white text-xs font-semibold hover:bg-zinc-800 transition-colors shadow-sm">
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-gray-200 text-gray-700 hover:text-black hover:bg-gray-50 text-xs font-medium transition-colors shadow-2xs cursor-pointer">
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path d="M10 19l-7-7m0 0l7-7m-7 7h18" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
                         </svg>
                         <span>Back to Dashboard</span>
                     </Link>
+
+                    {/* Export CSV (Primary Action - Standard Black) */}
+                    <button
+                        onClick={() => showActionToast('Portfolio Benchmark CSV exported successfully!')}
+                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-zinc-900 text-white text-xs font-semibold hover:bg-black transition-colors shadow-sm cursor-pointer">
+                        <svg className="w-3.5 h-3.5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
+                        </svg>
+                        <span>Export CSV</span>
+                    </button>
                 </div>
             </section>
             {/* END: PageHeadingAndControls */}

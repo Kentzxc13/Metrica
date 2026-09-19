@@ -64,13 +64,13 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-2.5">
                     <button
                         onClick={() => showActionToast('Settings restored to fund defaults.')}
-                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white border border-gray-200/80 text-gray-700 text-xs font-medium hover:bg-gray-50 transition-colors shadow-xs"
+                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white border border-gray-200 text-gray-700 hover:text-black hover:bg-gray-50 text-xs font-medium transition-colors shadow-2xs cursor-pointer"
                     >
                         <span>Reset Defaults</span>
                     </button>
                     <button
                         onClick={handleSave}
-                        className="flex items-center gap-2 px-4 py-1.5 rounded-xl bg-[#1e2329] text-white text-xs font-medium hover:bg-black transition-colors shadow-sm"
+                        className="flex items-center gap-2 px-4 py-1.5 rounded-xl bg-zinc-900 text-white text-xs font-semibold hover:bg-black transition-colors shadow-sm cursor-pointer"
                     >
                         <span>Save Changes</span>
                     </button>
