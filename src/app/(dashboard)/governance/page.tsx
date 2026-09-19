@@ -299,30 +299,26 @@ export default function BoardGovernancePage() {
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs font-mono font-medium text-gray-800 bg-gray-50 border border-gray-200/80 px-2.5 py-1 rounded-lg">
-                                    {selectedMeeting.nextMeetingDate.split('•')[0].trim()}
-                                </span>
-                                <button
-                                    onClick={() => showActionToast(`Added ${selectedMeeting.companyName} session to calendar (.ics)`)}
-                                    className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-                                    title="Add to Calendar"
-                                >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8"></path>
-                                    </svg>
-                                </button>
-                            </div>
+                            <button
+                                onClick={() => showActionToast(`Added ${selectedMeeting.companyName} session to calendar (.ics)`)}
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white hover:bg-gray-50 border border-gray-200 text-xs font-semibold text-gray-700 hover:text-black transition-colors cursor-pointer shadow-2xs group"
+                                title="Add session to calendar (.ics)"
+                            >
+                                <svg className="w-3.5 h-3.5 text-gray-400 group-hover:text-black transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8"></path>
+                                </svg>
+                                <span>{selectedMeeting.nextMeetingDate.split('•')[0].trim()}</span>
+                            </button>
                         </div>
 
                         {/* Dossier Body: Expanded Agenda Block + Pre-Meeting Pack */}
                         <div className="space-y-4 flex-1 flex flex-col justify-between">
                             {/* Formal Session Agenda Block */}
-                            <div className="p-4 rounded-xl bg-gray-50/90 border border-gray-200/80 space-y-3">
+                            <div className="p-4 rounded-xl bg-gray-50/80 border border-gray-200/70 space-y-3">
                                 <div>
                                     <div className="flex items-center justify-between mb-1.5">
-                                        <span className="text-[10px] uppercase font-semibold text-gray-500 tracking-wider">PRIMARY SESSION AGENDA</span>
-                                        <span className="text-xs font-mono font-medium text-gray-600 bg-white border border-gray-200/80 px-2 py-0.5 rounded-md">
+                                        <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">PRIMARY SESSION AGENDA</span>
+                                        <span className="text-xs font-semibold text-gray-700 bg-white border border-gray-200/80 px-2.5 py-0.5 rounded-md shadow-2xs">
                                             {selectedMeeting.quorum}
                                         </span>
                                     </div>
@@ -332,13 +328,13 @@ export default function BoardGovernancePage() {
                                 </div>
 
                                 {/* Structured Agenda Items Rows */}
-                                <div className="space-y-2 pt-2.5 border-t border-gray-200/70">
+                                <div className="space-y-2 pt-2.5 border-t border-gray-200/60">
                                     {selectedMeeting.agendaItems?.map((item, idx) => (
-                                        <div key={idx} className="flex items-center gap-3 p-2.5 px-3 rounded-lg bg-white border border-gray-200/70 shadow-2xs">
-                                            <span className="w-5 h-5 rounded-full bg-zinc-900 text-white font-mono text-[10px] font-bold flex items-center justify-center shrink-0">
+                                        <div key={idx} className="flex items-center gap-3 p-2.5 px-3 rounded-xl bg-white border border-gray-200/70 shadow-2xs hover:border-gray-300 transition-colors">
+                                            <span className="w-5 h-5 rounded-full bg-zinc-900 text-white font-mono text-[10px] font-bold flex items-center justify-center shrink-0 shadow-2xs">
                                                 {idx + 1}
                                             </span>
-                                            <span className="text-xs font-medium text-gray-800 leading-normal truncate">
+                                            <span className="text-xs font-medium text-gray-800 leading-normal">
                                                 {item}
                                             </span>
                                         </div>
@@ -347,50 +343,66 @@ export default function BoardGovernancePage() {
                             </div>
 
                             {/* Pre-Meeting Governance & Readiness Pack */}
-                            <div className="p-4 rounded-xl bg-white border border-gray-200/80 space-y-3">
+                            <div className="pt-3 border-t border-gray-100 space-y-3">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-[10px] uppercase font-semibold text-gray-500 tracking-wider">PRE-MEETING READINESS CHECKLIST</span>
-                                    <span className="text-xs font-mono text-gray-400">Board Pack v2.4</span>
+                                    <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">PRE-MEETING READINESS CHECKLIST</span>
+                                    <span className="text-[11px] font-mono font-medium text-gray-500 bg-gray-100 border border-gray-200/60 px-2 py-0.5 rounded-md">Board Pack v2.4</span>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-2.5 text-xs">
-                                    <div className="p-3 rounded-xl bg-gray-50/70 border border-gray-200/60 flex items-center justify-between">
-                                        <div>
-                                            <div className="text-[10px] text-gray-400 uppercase font-semibold tracking-wider">Board Materials</div>
-                                            <div className="font-bold text-gray-900 text-xs mt-0.5">{selectedMeeting.preMeetingChecklist?.deckStatus || selectedMeeting.materialsStatus}</div>
+                                    <div className="p-3 rounded-xl bg-gray-50/70 border border-gray-200/60 flex items-center justify-between gap-2 hover:border-gray-300 transition-colors">
+                                        <div className="min-w-0">
+                                            <div className="text-[10px] text-gray-400 uppercase font-semibold tracking-wider truncate">Board Materials</div>
+                                            <div className="font-bold text-gray-900 text-xs mt-0.5 truncate">{selectedMeeting.preMeetingChecklist?.deckStatus || selectedMeeting.materialsStatus}</div>
                                         </div>
                                         <button
                                             onClick={() => showActionToast(`Board materials deck loaded for ${selectedMeeting.companyName}.`)}
-                                            className="px-2.5 py-1 rounded-md bg-white border border-gray-200 hover:border-gray-300 text-xs font-medium text-gray-700 shadow-2xs transition-colors"
+                                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-gray-200 text-gray-700 hover:text-black hover:bg-gray-50 text-xs font-semibold shadow-2xs transition-colors cursor-pointer shrink-0"
                                         >
-                                            Preview
+                                            <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path>
+                                                <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path>
+                                            </svg>
+                                            <span>Preview</span>
                                         </button>
                                     </div>
 
-                                    <div className="p-3 rounded-xl bg-gray-50/70 border border-gray-200/60 flex items-center justify-between">
-                                        <div>
-                                            <div className="text-[10px] text-gray-400 uppercase font-semibold tracking-wider">Financial Model</div>
-                                            <div className="font-bold text-gray-900 text-xs mt-0.5">{selectedMeeting.preMeetingChecklist?.financialsStatus || 'Verified'}</div>
+                                    <div className="p-3 rounded-xl bg-gray-50/70 border border-gray-200/60 flex items-center justify-between gap-2 hover:border-gray-300 transition-colors">
+                                        <div className="min-w-0">
+                                            <div className="text-[10px] text-gray-400 uppercase font-semibold tracking-wider truncate">Financial Model</div>
+                                            <div className="font-bold text-gray-900 text-xs mt-0.5 truncate">{selectedMeeting.preMeetingChecklist?.financialsStatus || 'Verified'}</div>
                                         </div>
-                                        <span className="text-emerald-600 font-bold text-xs">✓</span>
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200/70 text-emerald-700 text-[11px] font-semibold shrink-0">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                                            <span>Verified</span>
+                                        </span>
                                     </div>
 
-                                    <div className="p-3 rounded-xl bg-gray-50/70 border border-gray-200/60 flex items-center justify-between">
-                                        <div>
-                                            <div className="text-[10px] text-gray-400 uppercase font-semibold tracking-wider">Attendance Quorum</div>
-                                            <div className="font-bold text-gray-900 text-xs mt-0.5">{selectedMeeting.preMeetingChecklist?.quorumStatus || selectedMeeting.quorum}</div>
+                                    <div className="p-3 rounded-xl bg-gray-50/70 border border-gray-200/60 flex items-center justify-between gap-2 hover:border-gray-300 transition-colors">
+                                        <div className="min-w-0">
+                                            <div className="text-[10px] text-gray-400 uppercase font-semibold tracking-wider truncate">Attendance Quorum</div>
+                                            <div className="font-bold text-gray-900 text-xs mt-0.5 truncate">{selectedMeeting.preMeetingChecklist?.quorumStatus || selectedMeeting.quorum}</div>
                                         </div>
-                                        <span className="text-gray-500 font-medium text-xs">Confirmed</span>
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200/70 text-emerald-700 text-[11px] font-semibold shrink-0">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                                            <span>Confirmed</span>
+                                        </span>
                                     </div>
 
-                                    <div className="p-3 rounded-xl bg-gray-50/70 border border-gray-200/60 flex items-center justify-between">
-                                        <div>
-                                            <div className="text-[10px] text-gray-400 uppercase font-semibold tracking-wider">Prior Commitments</div>
-                                            <div className="font-bold text-gray-900 text-xs mt-0.5">
+                                    <div className="p-3 rounded-xl bg-gray-50/70 border border-gray-200/60 flex items-center justify-between gap-2 hover:border-gray-300 transition-colors">
+                                        <div className="min-w-0">
+                                            <div className="text-[10px] text-gray-400 uppercase font-semibold tracking-wider truncate">Prior Commitments</div>
+                                            <div className="font-bold text-gray-900 text-xs mt-0.5 truncate">
                                                 {`${completedCommitments} of ${totalCommitments} Delivered (${commitmentDeliveryRate}%)`}
                                             </div>
                                         </div>
-                                        <span className="text-[11px] font-semibold text-zinc-900">→ Right Panel</span>
+                                        <button
+                                            onClick={() => showActionToast(`Inspecting ${completedCommitments} delivered mandates in Prior Commitments panel.`)}
+                                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-gray-200 text-gray-700 hover:text-black hover:bg-gray-50 text-[11px] font-semibold transition-colors shadow-2xs cursor-pointer shrink-0"
+                                        >
+                                            <span>Inspect</span>
+                                            <span className="text-gray-400 text-xs">→</span>
+                                        </button>
                                     </div>
                                 </div>
                             </div>
