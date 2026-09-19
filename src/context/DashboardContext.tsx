@@ -22,11 +22,12 @@ interface DashboardContextType {
     showActionToast: (msg: string) => void;
     alerts: SystemAlert[];
     unreadAlertsCount: number;
-    markAllAlertsRead: () => void;
+    markAllAlertsRead: (silent?: boolean) => void;
     dismissAlert: (id: string) => void;
     messages: TeamMessage[];
     unreadMessagesCount: number;
-    markAllMessagesRead: () => void;
+    markAllMessagesRead: (silent?: boolean) => void;
+    markMessageRead: (id: string) => void;
     bookmarkedStartupIds: string[];
     toggleBookmarkStartup: (id: string) => void;
     // Caching & persistent events/transactions
@@ -229,18 +230,26 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     const unreadAlertsCount = alerts.filter(a => !a.isRead).length;
     const unreadMessagesCount = messages.filter(m => !m.isRead).length;
 
-    const markAllAlertsRead = () => {
+    const markAllAlertsRead = (silent = false) => {
         setAlerts(alerts.map(a => ({ ...a, isRead: true })));
-        showActionToast('All notifications marked as read.');
+        if (!silent) {
+            showActionToast('All notifications marked as read.');
+        }
     };
 
-    const markAllMessagesRead = () => {
+    const markAllMessagesRead = (silent = false) => {
         setMessages(messages.map(m => ({ ...m, isRead: true })));
-        showActionToast('All messages marked as read.');
+        if (!silent) {
+            showActionToast('All messages marked as read.');
+        }
     };
 
     const dismissAlert = (id: string) => {
         setAlerts(alerts.map(a => a.id === id ? { ...a, isRead: true } : a));
+    };
+
+    const markMessageRead = (id: string) => {
+        setMessages(messages.map(m => m.id === id ? { ...m, isRead: true } : m));
     };
 
     const toggleBookmarkStartup = (id: string) => {
@@ -272,6 +281,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
                 messages,
                 unreadMessagesCount,
                 markAllMessagesRead,
+                markMessageRead,
                 bookmarkedStartupIds,
                 toggleBookmarkStartup,
                 transactions,
