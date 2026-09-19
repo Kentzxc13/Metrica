@@ -1771,7 +1771,7 @@ export default function DashboardOverviewPage() {
             <table className="w-full text-left text-xs border-collapse table-fixed">
               <thead className="sticky top-0 bg-white z-20">
                 <tr className="border-b border-gray-100 text-gray-400 font-semibold uppercase text-[11px] bg-white">
-                  <th className="py-3 px-2 w-[4%] text-center">
+                  <th className="py-3 px-2 w-[3.5%] text-center">
                     <input
                       checked={
                         filteredTransactions.length > 0 &&
@@ -1782,13 +1782,13 @@ export default function DashboardOverviewPage() {
                       type="checkbox"
                     />
                   </th>
-                  <th className="py-3 px-2.5 w-[14%]">Timestamp</th>
-                  <th className="py-3 px-2.5 w-[16%]">Event Code</th>
-                  <th className="py-3 px-2.5 w-[18%]">Customer</th>
-                  <th className="py-3 px-2.5 w-[22%]">Product / Plan</th>
-                  <th className="py-3 px-2.5 w-[12%] text-left">Status</th>
+                  <th className="py-3 px-2.5 w-[13.5%]">Timestamp</th>
+                  <th className="py-3 px-2.5 w-[15%]">Event Code</th>
+                  <th className="py-3 px-2.5 w-[17.5%]">Customer</th>
+                  <th className="py-3 px-2.5 w-[19.5%]">Product / Plan</th>
+                  <th className="py-3 px-2.5 w-[11%] text-left">Status</th>
                   <th className="py-3 px-2.5 w-[10%] text-left">Revenue</th>
-                  <th className="py-3 px-1 w-[4%] text-center">Actions</th>
+                  <th className="py-3 pr-4 pl-2 w-[10%] text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
@@ -1871,7 +1871,7 @@ export default function DashboardOverviewPage() {
                     <td className="py-3.5 px-2.5 text-left font-mono font-bold text-gray-900">
                       {tx.totalRevenue}
                     </td>
-                    <td className="py-3.5 px-1 text-center relative">
+                    <td className="py-3.5 pr-4 pl-2 text-center relative">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1895,7 +1895,7 @@ export default function DashboardOverviewPage() {
                       {activeActionTx?.id === tx.id && (
                         <div
                           onClick={(e) => e.stopPropagation()}
-                          className={`absolute right-1 ${
+                          className={`absolute right-3 ${
                             index >= 3 ? "bottom-full mb-1.5" : "top-full mt-1.5"
                           } z-40 bg-white border border-gray-200 rounded-xl shadow-floating p-1.5 min-w-[175px] text-left animate-in fade-in zoom-in-95 duration-150`}
                         >
