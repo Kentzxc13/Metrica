@@ -283,8 +283,8 @@ export default function CompanyComparisonPage() {
                             </span>
                         )}
 
-                        {/* Tier Filter Tabs (Same design as Cap Table page) */}
-                        <div className="flex items-center bg-gray-50 border border-gray-200/80 p-1 rounded-xl gap-1">
+                        {/* Tier Filter Tabs */}
+                        <div className="inline-flex items-center rounded-xl bg-gray-100 p-0.5 text-xs font-medium text-gray-600">
                             {(['All', 'Outperforming', 'Moderate', 'At Risk'] as const).map(tier => {
                                 const count = tier === 'All'
                                     ? companies.length
@@ -294,15 +294,15 @@ export default function CompanyComparisonPage() {
                                     <button
                                         key={tier}
                                         onClick={() => setComparisonTierFilter(tier)}
-                                        className={`px-3 py-1 text-xs rounded-lg font-medium transition-all ${
+                                        className={`px-3 py-1 rounded-lg text-xs transition-all cursor-pointer ${
                                             isActive
-                                                ? 'bg-gray-900 text-white shadow-xs'
-                                                : 'text-gray-600 hover:text-gray-900 hover:bg-white'
+                                                ? 'bg-white text-black font-semibold shadow-xs'
+                                                : 'hover:text-black'
                                         }`}
                                     >
                                         <span>{tier === 'All' ? 'All Tiers' : tier}</span>
                                         <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full ${
-                                            isActive ? 'bg-white/20 text-white' : 'bg-gray-200/70 text-gray-600'
+                                            isActive ? 'bg-gray-100 text-gray-900 font-medium' : 'bg-gray-200/70 text-gray-500'
                                         }`}>
                                             {count}
                                         </span>

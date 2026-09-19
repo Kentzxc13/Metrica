@@ -185,17 +185,17 @@ export default function IntegrationsPage() {
                     </div>
 
                     {/* Protocol Filter Tabs */}
-                    <div className="flex items-center gap-1 p-1 bg-gray-50 border border-gray-200/60 rounded-xl text-xs">
+                    <div className="inline-flex items-center rounded-xl bg-gray-100 p-0.5 text-xs font-medium text-gray-600">
                         {(['All', 'Webhooks', 'Stripe', 'GraphQL', 'OAuth'] as const).map((proto) => {
                             const isActive = filterProtocol === proto;
                             return (
                                 <button
                                     key={proto}
                                     onClick={() => setFilterProtocol(proto)}
-                                    className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
+                                    className={`px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
                                         isActive
-                                            ? 'bg-black text-white shadow-xs font-semibold'
-                                            : 'text-gray-600 hover:text-black hover:bg-gray-200/60'
+                                            ? 'bg-white text-black font-semibold shadow-xs'
+                                            : 'hover:text-black'
                                     }`}
                                 >
                                     {proto}

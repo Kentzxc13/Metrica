@@ -78,17 +78,17 @@ export default function SettingsPage() {
             </section>
 
             {/* Section 2: Tab Navigation */}
-            <div className="flex items-center gap-1 p-1 bg-gray-50 border border-gray-200/60 rounded-xl text-xs w-fit">
+            <div className="inline-flex items-center rounded-xl bg-gray-100 p-0.5 text-xs font-medium text-gray-600 w-fit">
                 {tabs.map((tab) => {
                     const isActive = activeTab === tab.id;
                     return (
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
-                            className={`px-3.5 py-1.5 rounded-lg font-medium transition-all ${
+                            className={`px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
                                 isActive
-                                    ? 'bg-black text-white shadow-xs font-semibold'
-                                    : 'text-gray-600 hover:text-black hover:bg-gray-200/60'
+                                    ? 'bg-white text-black font-semibold shadow-xs'
+                                    : 'hover:text-black'
                             }`}
                         >
                             {tab.label}
