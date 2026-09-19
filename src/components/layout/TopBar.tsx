@@ -193,7 +193,9 @@ export function TopBar() {
                                             }
                                             setIsNotificationsOpen(false);
                                         }}
-                                        className="py-3 px-2.5 rounded-xl transition-colors cursor-pointer flex gap-3 hover:bg-gray-50/80">
+                                        className={`py-3 px-2.5 rounded-xl transition-colors cursor-pointer flex gap-3 hover:bg-gray-50/80 ${
+                                            !alert.isRead ? 'bg-rose-50/30' : ''
+                                        }`}>
                                         {/* Alert Icon */}
                                         <div className="flex-shrink-0 mt-0.5">
                                             {alert.type === 'risk' ? (
@@ -220,8 +222,13 @@ export function TopBar() {
                                         {/* Alert Content */}
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center justify-between gap-1">
-                                                <span className="font-semibold text-xs text-gray-900 truncate">{alert.title}</span>
-                                                <span className="text-[10px] text-gray-400 whitespace-nowrap">{alert.time}</span>
+                                                <div className="flex items-center gap-1.5 min-w-0">
+                                                    {!alert.isRead && (
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0"></span>
+                                                    )}
+                                                    <span className="font-semibold text-xs text-gray-900 truncate">{alert.title}</span>
+                                                </div>
+                                                <span className="text-[10px] text-gray-400 whitespace-nowrap shrink-0">{alert.time}</span>
                                             </div>
                                             <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">{alert.message}</p>
                                             <div className="flex items-center justify-between mt-1.5">

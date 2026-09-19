@@ -24,6 +24,15 @@ interface DashboardContextType {
     unreadAlertsCount: number;
     markAllAlertsRead: (silent?: boolean) => void;
     dismissAlert: (id: string) => void;
+    triggerNotification: (alert: {
+        title: string;
+        message: string;
+        type?: 'risk' | 'error' | 'success';
+        tag?: string;
+        actionNav?: string;
+        actionCompanyId?: string;
+    }) => void;
+    updateCompanyHealth: (companyId: string, updates: Partial<Company>) => void;
     messages: TeamMessage[];
     unreadMessagesCount: number;
     markAllMessagesRead: (silent?: boolean) => void;
@@ -148,6 +157,65 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         };
     }, [refreshTransactions]);
 
+    const showActionToast = useCallback((msg: string) => {
+        setActionToastMessage(msg);
+        setTimeout(() => setActionToastMessage(null), 3000);
+    }, []);
+
+    const triggerNotification = useCallback((alertData: {
+        title: string;
+        message: string;
+        type?: 'risk' | 'error' | 'success';
+        tag?: string;
+        actionNav?: string;
+        actionCompanyId?: string;
+    }) => {
+        const newAlert: SystemAlert = {
+            id: `alert-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            title: alertData.title,
+            message: alertData.message,
+            time: 'Just now',
+            type: alertData.type || 'risk',
+            isRead: false,
+            tag: alertData.tag || 'High Priority',
+            actionNav: alertData.actionNav,
+            actionCompanyId: alertData.actionCompanyId,
+        };
+        setAlerts((prev) => [newAlert, ...prev]);
+        showActionToast(`🚨 Alert: ${alertData.title}`);
+    }, [showActionToast]);
+
+    const updateCompanyHealth = useCallback((companyId: string, updates: Partial<Company>) => {
+        setCompanies((prev) => prev.map((c) => {
+            const target = companyId.toLowerCase();
+            if (c.id.toLowerCase() === target || c.name.toLowerCase().includes(target)) {
+                const updated = { ...c, ...updates };
+                // Detect status transition to At Risk
+                if (updates.aiTier === 'At Risk' && c.aiTier !== 'At Risk') {
+                    triggerNotification({
+                        title: `Critical Alert: ${c.name} Dropped to At Risk`,
+                        message: `${c.name} churn surged to ${updates.churnRate || c.churnRate || '16.4%'}. AI health tier downgraded to At Risk. Remediation required.`,
+                        type: 'risk',
+                        tag: 'Health Downgrade',
+                        actionNav: 'comparison',
+                        actionCompanyId: c.id,
+                    });
+                } else if (updates.aiTier === 'Outperforming' && c.aiTier === 'At Risk') {
+                    triggerNotification({
+                        title: `Health Restored: ${c.name}`,
+                        message: `${c.name} unit economics stabilized. AI health tier restored to Outperforming.`,
+                        type: 'success',
+                        tag: 'Health Restored',
+                        actionNav: 'comparison',
+                        actionCompanyId: c.id,
+                    });
+                }
+                return updated;
+            }
+            return c;
+        }));
+    }, [triggerNotification]);
+
     const addTransaction = useCallback((newTx: Transaction) => {
         setTransactions((prev) => {
             const exists = prev.some((t) => t.code.toLowerCase() === newTx.code.toLowerCase());
@@ -164,7 +232,18 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
             }
             return updated;
         });
-    }, []);
+
+        // Trigger notification if transaction failed
+        if (newTx.status === 'Failed') {
+            triggerNotification({
+                title: 'Payment Failed: Smart Dunning Active',
+                message: `Payment #${newTx.code} for ${newTx.customer} (${newTx.amount}) failed. Smart dunning sequence initiated.`,
+                type: 'error',
+                tag: 'Dunning',
+                actionNav: 'ledger',
+            });
+        }
+    }, [triggerNotification]);
 
     const deleteTransaction = useCallback(async (id: string): Promise<boolean> => {
         try {
@@ -222,11 +301,6 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         return c.id.toLowerCase() === target || c.name.toLowerCase().includes(target);
     }) || companies[0] || fallbackDefaultCompany;
 
-    const showActionToast = (msg: string) => {
-        setActionToastMessage(msg);
-        setTimeout(() => setActionToastMessage(null), 3000);
-    };
-
     const unreadAlertsCount = alerts.filter(a => !a.isRead).length;
     const unreadMessagesCount = messages.filter(m => !m.isRead).length;
 
@@ -278,6 +352,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
                 unreadAlertsCount,
                 markAllAlertsRead,
                 dismissAlert,
+                triggerNotification,
+                updateCompanyHealth,
                 messages,
                 unreadMessagesCount,
                 markAllMessagesRead,

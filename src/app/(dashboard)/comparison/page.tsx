@@ -20,7 +20,8 @@ export default function CompanyComparisonPage() {
         setSelectedCompanyId,
         companies,
         globalSearchQuery,
-        showActionToast
+        showActionToast,
+        updateCompanyHealth,
     } = useDashboard();
 
     // Benchmark matrix one-time animation state across navigation
@@ -499,6 +500,44 @@ export default function CompanyComparisonPage() {
                                                             </svg>
                                                             <span>Copy Metric Summary</span>
                                                         </button>
+                                                        <div className="border-t border-gray-100 my-1"></div>
+                                                        {c.aiTier !== 'At Risk' ? (
+                                                            <button
+                                                                onClick={() => {
+                                                                    updateCompanyHealth(c.id, {
+                                                                        aiTier: 'At Risk',
+                                                                        churnRate: '16.8%',
+                                                                        highChurnWarning: true,
+                                                                        aiRationale: 'Critical churn threshold exceeded (>10%). Unit economics remediation required.',
+                                                                        aiScore: 48,
+                                                                    });
+                                                                    setActiveActionMenuId(null);
+                                                                }}
+                                                                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer">
+                                                                <svg className="w-3.5 h-3.5 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
+                                                                </svg>
+                                                                <span>Simulate At Risk Drop</span>
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                onClick={() => {
+                                                                    updateCompanyHealth(c.id, {
+                                                                        aiTier: 'Outperforming',
+                                                                        churnRate: '2.1%',
+                                                                        highChurnWarning: false,
+                                                                        aiRationale: 'Exceptional net expansion (118% NRR) and industry-low churn (2.1%).',
+                                                                        aiScore: 94,
+                                                                    });
+                                                                    setActiveActionMenuId(null);
+                                                                }}
+                                                                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-emerald-600 hover:bg-emerald-50 transition-colors cursor-pointer">
+                                                                <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
+                                                                </svg>
+                                                                <span>Restore to Outperforming</span>
+                                                            </button>
+                                                        )}
                                                         <div className="border-t border-gray-100 my-1"></div>
                                                         <button
                                                             onClick={() => {

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { StartupProspect } from '@/types/screening';
+import { useDashboard } from '@/context/DashboardContext';
 
 interface AddProspectModalProps {
     isOpen: boolean;
@@ -22,6 +23,7 @@ export function AddProspectModal({
     const [growthRate, setGrowthRate] = useState('');
     const [isEvaluating, setIsEvaluating] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const { triggerNotification } = useDashboard();
 
     if (!isOpen) return null;
 
@@ -150,6 +152,17 @@ export function AddProspectModal({
 
             onProspectAdded(newProspect);
             onShowToast?.(`AI Screening completed for ${name}: ${data.aiTier} (${data.aiScore}/100)`);
+
+            if (isHighChurn || data.aiTier === 'At Risk') {
+                triggerNotification({
+                    title: `Deal Alert: ${name} Flagged At Risk`,
+                    message: `Evaluated prospect ${name} churn reached ${parsedChurn} (safe threshold <10%). AI Diligence score: ${data.aiScore || 48}/100.`,
+                    type: 'risk',
+                    tag: 'High Churn',
+                    actionNav: 'ai-screening',
+                });
+            }
+
             onClose();
 
             // Reset form
