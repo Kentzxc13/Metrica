@@ -54,6 +54,8 @@ CLAUDE.md
 AGENTS.md
 mcp_config.json
 .agents/
+.codex/
+.impeccable/
 
 # public boilerplate svgs
 /public
