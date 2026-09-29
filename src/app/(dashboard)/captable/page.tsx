@@ -121,7 +121,11 @@ export default function CapTableOwnershipPage() {
                             </div>
                             <div className="flex items-baseline gap-1.5">
                                 <span className="text-2xl font-bold font-mono text-gray-900 tracking-tight">
-                                    {isLoading ? '—' : formatKpiMoney(totalInvested)}
+                                    {isLoading ? (
+                                        <span className="text-gray-400 text-lg animate-pulse">Loading...</span>
+                                    ) : (
+                                        formatKpiMoney(totalInvested)
+                                    )}
                                 </span>
                                 <span className="text-xs text-gray-400 font-normal">Deployed</span>
                             </div>
@@ -149,10 +153,18 @@ export default function CapTableOwnershipPage() {
                             </div>
                             <div className="flex items-baseline gap-1.5">
                                 <span className="text-2xl font-bold font-mono text-gray-900 tracking-tight">
-                                    {isLoading ? '—' : formatKpiMoney(totalFairValue)}
+                                    {isLoading ? (
+                                        <span className="text-gray-400 text-lg animate-pulse">Loading...</span>
+                                    ) : (
+                                        formatKpiMoney(totalFairValue)
+                                    )}
                                 </span>
                                 <span className="text-xs text-emerald-600 font-medium">
-                                    {isLoading ? '—' : formatKpiMoney(totalUnrealizedGain)}
+                                    {isLoading ? (
+                                        <span className="text-gray-400 text-lg animate-pulse">Loading...</span>
+                                    ) : (
+                                        formatKpiMoney(totalUnrealizedGain)
+                                    )}
                                 </span>
                             </div>
                         </div>
@@ -184,7 +196,11 @@ export default function CapTableOwnershipPage() {
                             </div>
                             <div className="flex items-baseline gap-1.5">
                                 <span className="text-2xl font-bold font-mono text-gray-900 tracking-tight">
-                                    {isLoading ? '—' : `${weightedMoic.toFixed(2)}x`}
+                                    {isLoading ? (
+                                        <span className="text-gray-400 text-lg animate-pulse">Loading...</span>
+                                    ) : (
+                                        `${weightedMoic.toFixed(2)}x`
+                                    )}
                                 </span>
                                 <span className="text-xs text-gray-400 font-normal">Multiple</span>
                             </div>
@@ -217,7 +233,11 @@ export default function CapTableOwnershipPage() {
                             </div>
                             <div className="flex items-baseline gap-1.5">
                                 <span className="text-2xl font-bold font-mono text-gray-900 tracking-tight">
-                                    {isLoading ? '—' : `+${weightedIrr.toFixed(1)}%`}
+                                    {isLoading ? (
+                                        <span className="text-gray-400 text-lg animate-pulse">Loading...</span>
+                                    ) : (
+                                        `+${weightedIrr.toFixed(1)}%`
+                                    )}
                                 </span>
                                 <span className="text-xs text-emerald-600 font-normal">Annualized</span>
                             </div>
