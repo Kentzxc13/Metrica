@@ -344,7 +344,13 @@ export default function EventLedgerPage() {
                                 <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">Total Events</span>
                             </div>
                             <div className="flex items-baseline gap-1.5">
-                                <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">{totalEvents}</span>
+                                <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">
+                                    {isLoading ? (
+                                        <span className="text-gray-400 text-lg animate-pulse">Loading...</span>
+                                    ) : (
+                                        totalEvents
+                                    )}
+                                </span>
                                 <span className="text-xs text-gray-400 font-normal">Today</span>
                             </div>
                         </div>
@@ -375,7 +381,13 @@ export default function EventLedgerPage() {
                                 <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">Net MRR Velocity</span>
                             </div>
                             <div className="flex items-baseline gap-1.5">
-                                <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">{formattedNetMrr}</span>
+                                <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">
+                                    {isLoading ? (
+                                        <span className="text-gray-400 text-lg animate-pulse">Loading...</span>
+                                    ) : (
+                                        formattedNetMrr
+                                    )}
+                                </span>
                                 <span className="text-xs text-gray-400 font-normal">Added</span>
                             </div>
                         </div>
@@ -406,7 +418,13 @@ export default function EventLedgerPage() {
                                 <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">Delivered Events</span>
                             </div>
                             <div className="flex items-baseline gap-1.5">
-                                <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">{deliveredEvents}</span>
+                                <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">
+                                    {isLoading ? (
+                                        <span className="text-gray-400 text-lg animate-pulse">Loading...</span>
+                                    ) : (
+                                        deliveredEvents
+                                    )}
+                                </span>
                                 <span className="text-xs text-gray-400 font-normal">Delivered</span>
                             </div>
                         </div>
@@ -435,7 +453,13 @@ export default function EventLedgerPage() {
                                 <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">Flagged Events</span>
                             </div>
                             <div className="flex items-baseline gap-1.5">
-                                <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">{flaggedEvents}</span>
+                                <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">
+                                    {isLoading ? (
+                                        <span className="text-gray-400 text-lg animate-pulse">Loading...</span>
+                                    ) : (
+                                        flaggedEvents
+                                    )}
+                                </span>
                                 <span className="text-xs text-gray-400 font-normal">Action Required</span>
                             </div>
                         </div>
