@@ -1,7 +1,7 @@
-"use client";
-
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Company, Transaction } from '@/types/company';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { Company, Transaction, DashboardSummary } from '@/types/company';
+import { CapTableHolding } from '@/types/captable';
+import { AuditLedgerEvent } from '@/types/ledger';
 import { SystemAlert, TeamMessage } from '@/types/alerts';
 // Mock fallback kept commented out for offline resilience
 // import { COMPANIES, INITIAL_TRANSACTIONS } from '@/data/companies';
@@ -9,6 +9,23 @@ import { INITIAL_SYSTEM_ALERTS, INITIAL_TEAM_MESSAGES } from '@/data/alertsAndMe
 import { supabaseBrowser } from '@/lib/supabase-browser';
 
 const TRANSACTIONS_CACHE_KEY = 'metrica_transactions_cache';
+const DASHBOARD_CACHE_KEY = 'metrica_dashboard_cache';
+const CAPTABLE_CACHE_KEY = 'metrica_captable_cache';
+const LEDGER_CACHE_KEY = 'metrica_ledger_cache';
+const COMPANIES_CACHE_KEY = 'metrica_companies_cache';
+const SELECTED_COMPANY_KEY = 'metrica_selected_company_id';
+
+function readLocalCache<T>(key: string, fallback: T): T {
+    if (typeof window === 'undefined') return fallback;
+    try {
+        const item = localStorage.getItem(key);
+        if (!item) return fallback;
+        const parsed = JSON.parse(item);
+        return parsed !== null && parsed !== undefined ? parsed : fallback;
+    } catch {
+        return fallback;
+    }
+}
 
 interface DashboardContextType {
     selectedCompanyId: string;
@@ -45,37 +62,100 @@ interface DashboardContextType {
     addTransaction: (newTx: Transaction) => void;
     deleteTransaction: (id: string) => Promise<boolean>;
     refreshTransactions: () => Promise<void>;
+    // Stale-While-Revalidate Caches (0ms Page Switching)
+    dashboardSummaries: Record<string, DashboardSummary>;
+    currentDashboardData: DashboardSummary | null;
+    isDashboardLoading: boolean;
+    loadDashboardData: (companyId?: string, forceShowLoading?: boolean) => Promise<void>;
+    capTableHoldings: CapTableHolding[];
+    isCapTableLoading: boolean;
+    loadCapTable: (forceShowLoading?: boolean) => Promise<void>;
+    ledgerEvents: AuditLedgerEvent[];
+    isLedgerLoading: boolean;
+    loadLedgerEvents: (forceShowLoading?: boolean) => Promise<void>;
 }
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
 
 export function DashboardProvider({ children }: { children: React.ReactNode }) {
-    const [selectedCompanyId, setSelectedCompanyId] = useState<string>('cloudnest');
+    const [selectedCompanyId, setSelectedCompanyIdState] = useState<string>(() => 
+        readLocalCache<string>(SELECTED_COMPANY_KEY, 'cloudnest')
+    );
+    const setSelectedCompanyId = useCallback((id: string) => {
+        setSelectedCompanyIdState(id);
+        if (typeof window !== 'undefined') {
+            try {
+                localStorage.setItem(SELECTED_COMPANY_KEY, JSON.stringify(id));
+            } catch {}
+        }
+    }, []);
+
     const [globalSearchQuery, setGlobalSearchQuery] = useState<string>('');
     const [actionToastMessage, setActionToastMessage] = useState<string | null>(null);
     const [alerts, setAlerts] = useState<SystemAlert[]>(INITIAL_SYSTEM_ALERTS);
     const [messages, setMessages] = useState<TeamMessage[]>(INITIAL_TEAM_MESSAGES);
     const [bookmarkedStartupIds, setBookmarkedStartupIds] = useState<string[]>([]);
 
-    // Live companies loaded directly from Supabase
-    const [companies, setCompanies] = useState<Company[]>([]);
-    const [isCompaniesLoading, setIsCompaniesLoading] = useState<boolean>(true);
+    // Live companies loaded directly from Supabase with localStorage cache
+    const [companies, setCompanies] = useState<Company[]>(() => 
+        readLocalCache<Company[]>(COMPANIES_CACHE_KEY, [])
+    );
+    const [isCompaniesLoading, setIsCompaniesLoading] = useState<boolean>(() => companies.length === 0);
 
-    // Persistent live transactions from Supabase (mock data hidden/commented out)
-    const [transactions, setTransactions] = useState<Transaction[]>([]);
-    const [isTransactionsLoading, setIsTransactionsLoading] = useState<boolean>(true);
+    // Persistent live transactions from Supabase with localStorage cache
+    const [transactions, setTransactions] = useState<Transaction[]>(() => 
+        readLocalCache<Transaction[]>(TRANSACTIONS_CACHE_KEY, [])
+    );
+    const [isTransactionsLoading, setIsTransactionsLoading] = useState<boolean>(() => transactions.length === 0);
+
+    // Stale-While-Revalidate caches
+    const [dashboardSummaries, setDashboardSummaries] = useState<Record<string, DashboardSummary>>(() => 
+        readLocalCache<Record<string, DashboardSummary>>(DASHBOARD_CACHE_KEY, {})
+    );
+    const [isDashboardLoading, setIsDashboardLoading] = useState<boolean>(false);
+
+    const [capTableHoldings, setCapTableHoldings] = useState<CapTableHolding[]>(() => 
+        readLocalCache<CapTableHolding[]>(CAPTABLE_CACHE_KEY, [])
+    );
+    const [isCapTableLoading, setIsCapTableLoading] = useState<boolean>(false);
+    const [hasLoadedCapTableOnce, setHasLoadedCapTableOnce] = useState<boolean>(() => capTableHoldings.length > 0);
+
+    const [ledgerEvents, setLedgerEvents] = useState<AuditLedgerEvent[]>(() => 
+        readLocalCache<AuditLedgerEvent[]>(LEDGER_CACHE_KEY, [])
+    );
+    const [isLedgerLoading, setIsLedgerLoading] = useState<boolean>(false);
+    const [hasLoadedLedgerOnce, setHasLoadedLedgerOnce] = useState<boolean>(() => ledgerEvents.length > 0);
+
+    // Keep refs to avoid stale closure or infinite re-render loops in callbacks
+    const dashboardSummariesRef = useRef(dashboardSummaries);
+    dashboardSummariesRef.current = dashboardSummaries;
+
+    const capTableHoldingsRef = useRef(capTableHoldings);
+    capTableHoldingsRef.current = capTableHoldings;
+
+    const ledgerEventsRef = useRef(ledgerEvents);
+    ledgerEventsRef.current = ledgerEvents;
 
     // Load live companies from Supabase
     useEffect(() => {
         let isMounted = true;
         const loadCompanies = async () => {
+            const cached = readLocalCache<Company[]>(COMPANIES_CACHE_KEY, []);
+            if (companies.length === 0 && cached.length > 0) {
+                setCompanies(cached);
+                setIsCompaniesLoading(false);
+            }
             try {
-                setIsCompaniesLoading(true);
                 const res = await fetch('/api/companies', { cache: 'no-store' });
                 if (res.ok) {
                     const data = await res.json();
                     if (isMounted && Array.isArray(data.companies) && data.companies.length > 0) {
                         setCompanies(data.companies);
+                        if (typeof window !== 'undefined') {
+                            try {
+                                localStorage.setItem(COMPANIES_CACHE_KEY, JSON.stringify(data.companies));
+                            } catch {}
+                        }
                     }
                 }
             } catch (err) {
@@ -86,7 +166,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         };
         loadCompanies();
         return () => { isMounted = false; };
-    }, []);
+    }, [companies.length]);
 
     const refreshTransactions = useCallback(async () => {
         try {
@@ -114,26 +194,135 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         }
     }, [selectedCompanyId]);
 
-    // Initial mount: load from localStorage cache first, then background sync
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            try {
-                const cached = localStorage.getItem(TRANSACTIONS_CACHE_KEY);
-                if (cached) {
-                    const parsed = JSON.parse(cached);
-                    if (Array.isArray(parsed) && parsed.length > 0) {
-                        setTransactions(parsed);
-                        setIsTransactionsLoading(false);
-                    }
-                }
-            } catch (e) {
-                console.warn('Failed to read transactions from localStorage cache:', e);
-            }
+    const loadDashboardData = useCallback(async (companyId?: string, forceShowLoading = false) => {
+        const targetId = companyId || selectedCompanyId || 'cloudnest';
+        const cachedFromStorage = readLocalCache<Record<string, DashboardSummary>>(DASHBOARD_CACHE_KEY, {});
+        const hasExistingData = !!dashboardSummariesRef.current[targetId] || !!cachedFromStorage[targetId];
+
+        // SWR: Only show loading skeleton if we have NO cached data for this company
+        if (!hasExistingData || forceShowLoading) {
+            setIsDashboardLoading(true);
         }
 
-        // Run background sync
+        if (!dashboardSummariesRef.current[targetId] && cachedFromStorage[targetId]) {
+            setDashboardSummaries((prev) => ({ ...prev, ...cachedFromStorage }));
+        }
+
+        try {
+            const res = await fetch(`/api/dashboard?company_id=${encodeURIComponent(targetId)}`, { cache: 'no-store' });
+            if (res.ok) {
+                const json = await res.json();
+                if (json.summary) {
+                    const summary: DashboardSummary = {
+                        ...json.summary,
+                        history: Array.isArray(json.history) ? json.history : [],
+                    };
+                    setDashboardSummaries((prev) => {
+                        const next = { ...prev, [targetId]: summary };
+                        if (typeof window !== 'undefined') {
+                            try {
+                                localStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify(next));
+                            } catch (e) {
+                                console.warn('Failed to save dashboard cache:', e);
+                            }
+                        }
+                        return next;
+                    });
+                }
+            }
+        } catch (err) {
+            console.warn('Dashboard live metrics fetch error:', err);
+        } finally {
+            setIsDashboardLoading(false);
+        }
+    }, [selectedCompanyId]);
+
+    const loadCapTable = useCallback(async (forceShowLoading = false) => {
+        const cachedFromStorage = readLocalCache<CapTableHolding[]>(CAPTABLE_CACHE_KEY, []);
+        const hasExisting = capTableHoldingsRef.current.length > 0 || cachedFromStorage.length > 0;
+
+        if (!hasExisting || forceShowLoading) {
+            setIsCapTableLoading(true);
+        }
+
+        if (capTableHoldingsRef.current.length === 0 && cachedFromStorage.length > 0) {
+            setCapTableHoldings(cachedFromStorage);
+            setHasLoadedCapTableOnce(true);
+        }
+
+        try {
+            const res = await fetch('/api/captable', { cache: 'no-store' });
+            if (res.ok) {
+                const data = await res.json();
+                const holdings = data.holdings || [];
+                setCapTableHoldings(holdings);
+                setHasLoadedCapTableOnce(true);
+                if (typeof window !== 'undefined') {
+                    try {
+                        localStorage.setItem(CAPTABLE_CACHE_KEY, JSON.stringify(holdings));
+                    } catch (e) {
+                        console.warn('Failed to save captable cache:', e);
+                    }
+                }
+            }
+        } catch (err) {
+            console.warn('Failed to load cap table:', err);
+        } finally {
+            setIsCapTableLoading(false);
+        }
+    }, []);
+
+    const loadLedgerEvents = useCallback(async (forceShowLoading = false) => {
+        const cachedFromStorage = readLocalCache<AuditLedgerEvent[]>(LEDGER_CACHE_KEY, []);
+        const hasExisting = ledgerEventsRef.current.length > 0 || cachedFromStorage.length > 0;
+
+        if (!hasExisting || forceShowLoading) {
+            setIsLedgerLoading(true);
+        }
+
+        if (ledgerEventsRef.current.length === 0 && cachedFromStorage.length > 0) {
+            setLedgerEvents(cachedFromStorage);
+            setHasLoadedLedgerOnce(true);
+        }
+
+        try {
+            const res = await fetch('/api/ledger', { cache: 'no-store' });
+            if (res.ok) {
+                const data = await res.json();
+                const events = data.events || [];
+                setLedgerEvents(events);
+                setHasLoadedLedgerOnce(true);
+                if (typeof window !== 'undefined') {
+                    try {
+                        localStorage.setItem(LEDGER_CACHE_KEY, JSON.stringify(events));
+                    } catch (e) {
+                        console.warn('Failed to save ledger cache:', e);
+                    }
+                }
+            }
+        } catch (err) {
+            console.warn('Failed to load ledger events:', err);
+        } finally {
+            setIsLedgerLoading(false);
+        }
+    }, []);
+
+    // Initial mount: run background sync
+    useEffect(() => {
         refreshTransactions();
     }, [refreshTransactions]);
+
+    // Background sync dashboard when company changes
+    useEffect(() => {
+        loadDashboardData(selectedCompanyId, false);
+    }, [selectedCompanyId, loadDashboardData]);
+
+    const refreshTransactionsRef = useRef(refreshTransactions);
+    refreshTransactionsRef.current = refreshTransactions;
+    const loadDashboardDataRef = useRef(loadDashboardData);
+    loadDashboardDataRef.current = loadDashboardData;
+    const loadLedgerEventsRef = useRef(loadLedgerEvents);
+    loadLedgerEventsRef.current = loadLedgerEvents;
 
     // Realtime Supabase payment events listener
     useEffect(() => {
@@ -147,7 +336,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
                     table: 'payments',
                 },
                 () => {
-                    refreshTransactions();
+                    refreshTransactionsRef.current();
+                    loadDashboardDataRef.current(selectedCompanyId, false);
+                    loadLedgerEventsRef.current(false);
                 }
             )
             .subscribe();
@@ -155,7 +346,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         return () => {
             supabaseBrowser.removeChannel(channel);
         };
-    }, [refreshTransactions]);
+    }, [selectedCompanyId]);
 
     const showActionToast = useCallback((msg: string) => {
         setActionToastMessage(msg);
@@ -365,6 +556,16 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
                 addTransaction,
                 deleteTransaction,
                 refreshTransactions,
+                dashboardSummaries,
+                currentDashboardData: dashboardSummaries[currentCompany.id] || null,
+                isDashboardLoading,
+                loadDashboardData,
+                capTableHoldings,
+                isCapTableLoading,
+                loadCapTable,
+                ledgerEvents,
+                isLedgerLoading,
+                loadLedgerEvents,
             }}
         >
             {children}

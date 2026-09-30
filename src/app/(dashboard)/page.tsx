@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useDashboard } from "@/context/DashboardContext";
+import { DashboardPageSkeleton } from "@/components/ui/Skeleton";
 // Mock fallback kept commented out
 // import { MONTHS_DATA } from "@/data/companies";
 import { REVENUE_BREAKDOWN_BARS, MONTHS_DATA } from "@/data/companies";
@@ -17,57 +18,19 @@ import { supabaseBrowser } from "@/lib/supabase-browser";
 let hasEverAnimatedRecentEvents = false;
 
 export default function DashboardOverviewPage() {
-  const { currentCompany, showActionToast, transactions, addTransaction } = useDashboard();
-
-  interface DashboardSummary {
-    metricDate: string;
-    revenue: number;
-    paymentCount: number;
-    customerCount: number;
-    churnCount: number;
-    status: string;
-    revenueGrowth: number;
-    paymentGrowth: number;
-    customerGrowth: number;
-    churnGrowth: number;
-    conversionRate?: string;
-    conversionGrowth?: number;
-    history?: {
-      metricDate: string;
-      revenue: number;
-      paymentCount: number;
-      customerCount: number;
-      churnCount: number;
-      status: string;
-    }[];
-  }
-
-  const [dashboardData, setDashboardData] = useState<DashboardSummary | null>(null);
-  const [isDashboardLoading, setIsDashboardLoading] = useState<boolean>(false);
+  const {
+    currentCompany,
+    showActionToast,
+    transactions,
+    addTransaction,
+    currentDashboardData: dashboardData,
+    isDashboardLoading,
+    loadDashboardData,
+  } = useDashboard();
 
   useEffect(() => {
     let isMounted = true;
-    const loadDashboardData = async (showLoading = true) => {
-      if (showLoading) setIsDashboardLoading(true);
-      try {
-        const res = await fetch(`/api/dashboard?company_id=${encodeURIComponent(currentCompany.id)}`);
-        if (res.ok) {
-          const json = await res.json();
-          if (isMounted && json.summary) {
-            setDashboardData({
-              ...json.summary,
-              history: Array.isArray(json.history) ? json.history : [],
-            });
-          }
-        }
-      } catch (err) {
-        console.warn('Dashboard live metrics fetch error:', err);
-      } finally {
-        if (isMounted && showLoading) setIsDashboardLoading(false);
-      }
-    };
-
-    loadDashboardData(true);
+    loadDashboardData(currentCompany.id, false);
 
     // Realtime payment subscription (Dashboard_Live_Connection.md Section 5)
     const channel = supabaseBrowser
@@ -81,7 +44,7 @@ export default function DashboardOverviewPage() {
         },
         async () => {
           if (isMounted) {
-            await loadDashboardData(false);
+            await loadDashboardData(currentCompany.id, false);
           }
         }
       )
@@ -91,7 +54,7 @@ export default function DashboardOverviewPage() {
       isMounted = false;
       supabaseBrowser.removeChannel(channel);
     };
-  }, [currentCompany.id]);
+  }, [currentCompany.id, loadDashboardData]);
 
   // Recent Events one-time animation state across navigation
   const [shouldAnimateRows, setShouldAnimateRows] = useState<boolean>(
@@ -632,6 +595,10 @@ export default function DashboardOverviewPage() {
     }
   };
 
+  if (!dashboardData) {
+    return <DashboardPageSkeleton />;
+  }
+
   return (
     <>
       {/* BEGIN: PageHeadingAndControls */}
@@ -793,13 +760,7 @@ export default function DashboardOverviewPage() {
                 </span>
               </div>
               <div className="text-2xl font-bold text-gray-900 tracking-tight font-mono">
-                {isDashboardLoading ? (
-                  <span className="text-gray-400 text-lg animate-pulse">Loading...</span>
-                ) : dashboardData ? (
-                  `$${dashboardData.revenue.toLocaleString()}`
-                ) : (
-                  currentCompany.revenue
-                )}
+                {dashboardData ? `$${dashboardData.revenue.toLocaleString()}` : currentCompany.revenue}
               </div>
             </div>
             {/* Micro Sparkline Bar Chart */}
@@ -879,13 +840,7 @@ export default function DashboardOverviewPage() {
               </div>
               <div className="flex items-baseline gap-1.5">
                 <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">
-                  {isDashboardLoading ? (
-                    <span className="text-gray-400 text-lg animate-pulse">Loading...</span>
-                  ) : dashboardData ? (
-                    dashboardData.paymentCount.toLocaleString()
-                  ) : (
-                    currentCompany.orders
-                  )}
+                  {dashboardData ? dashboardData.paymentCount.toLocaleString() : currentCompany.orders}
                 </span>
                 <span className="text-xs text-gray-400 font-normal">
                   Orders
@@ -973,13 +928,7 @@ export default function DashboardOverviewPage() {
               </div>
               <div className="flex items-baseline gap-1.5">
                 <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">
-                  {isDashboardLoading ? (
-                    <span className="text-gray-400 text-lg animate-pulse">Loading...</span>
-                  ) : dashboardData ? (
-                    dashboardData.customerCount.toLocaleString()
-                  ) : (
-                    currentCompany.customers
-                  )}
+                  {dashboardData ? dashboardData.customerCount.toLocaleString() : currentCompany.customers}
                 </span>
                 <span className="text-xs text-gray-400 font-normal">
                   New Users
@@ -1066,13 +1015,7 @@ export default function DashboardOverviewPage() {
                 </span>
               </div>
               <div className="text-2xl font-bold text-gray-900 tracking-tight font-mono">
-                {isDashboardLoading ? (
-                  <span className="text-gray-400 text-lg animate-pulse">Loading...</span>
-                ) : dashboardData?.conversionRate ? (
-                  dashboardData.conversionRate
-                ) : (
-                  currentCompany.conversionRate
-                )}
+                {dashboardData?.conversionRate || currentCompany.conversionRate}
               </div>
             </div>
             {/* Micro Sparkline Bar Chart */}
@@ -1169,11 +1112,7 @@ export default function DashboardOverviewPage() {
                 <div className="text-xs text-gray-400 font-medium">
                   Total Revenue :{" "}
                   <span className="text-xl font-bold text-gray-900 ml-1.5 font-mono">
-                    {isDashboardLoading ? (
-                      "Loading..."
-                    ) : (
-                      salesTrendResult.totalRevenue
-                    )}
+                    {salesTrendResult.totalRevenue}
                   </span>
                 </div>
                 <div className="flex items-center gap-4 text-xs font-semibold tracking-wide text-gray-600">

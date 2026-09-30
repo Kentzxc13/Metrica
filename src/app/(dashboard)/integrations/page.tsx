@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useDashboard } from '@/context/DashboardContext';
 import { INITIAL_DATA_PIPELINES } from '@/data/pipelines';
 import { DataPipeline } from '@/types/pipeline';
+import { IntegrationsPageSkeleton } from '@/components/ui/Skeleton';
 
 export default function IntegrationsPage() {
     const { globalSearchQuery, showActionToast } = useDashboard();
@@ -142,6 +143,10 @@ export default function IntegrationsPage() {
             showActionToast('cURL Webhook snippet copied to clipboard');
         }
     };
+
+    if (pipelines.length === 0) {
+        return <IntegrationsPageSkeleton />;
+    }
 
     return (
         <div className="flex flex-col gap-5 pb-8">

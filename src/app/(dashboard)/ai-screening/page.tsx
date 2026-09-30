@@ -7,6 +7,7 @@ import { useDashboard } from '@/context/DashboardContext';
 import { StartupProspect } from '@/types/screening';
 import { StartupMemoModal } from '@/components/modals/StartupMemoModal';
 import { AddProspectModal } from '@/components/modals/AddProspectModal';
+import { AiScreeningPageSkeleton } from '@/components/ui/Skeleton';
 
 export default function AiScreeningPage() {
     const {
@@ -66,6 +67,10 @@ export default function AiScreeningPage() {
         return matchesSearch && matchesSector;
     });
 
+    if (isLoadingStartups && startups.length === 0) {
+        return <AiScreeningPageSkeleton />;
+    }
+
     return (
         <>
             {/* BEGIN: Header & Dynamic Controls */}
@@ -118,13 +123,7 @@ export default function AiScreeningPage() {
             </section>
 
             {/* Grid of Deal Screening Rectangle Cards */}
-            {isLoadingStartups && filteredStartups.length === 0 ? (
-                <div className="p-12 text-center bg-white rounded-2xl border border-gray-200/80 shadow-card">
-                    <div className="inline-block w-6 h-6 border-2 border-zinc-900 border-t-transparent rounded-full animate-spin mb-2"></div>
-                    <p className="text-xs text-gray-400">Loading live verified SaaS deal flow from Supabase...</p>
-                </div>
-            ) : (
-                <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {filteredStartups.map((startup) => {
                         const isBookmarked = bookmarkedStartupIds.includes(startup.id);
                         const churnNum = parseFloat(startup.churnRate.replace(/[^0-9.]/g, '')) || 0;
@@ -279,7 +278,6 @@ export default function AiScreeningPage() {
                     </div>
                 )}
             </section>
-            )}
 
             {/* Diligence Memo Modal */}
             <StartupMemoModal

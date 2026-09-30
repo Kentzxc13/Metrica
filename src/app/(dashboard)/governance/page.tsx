@@ -5,11 +5,12 @@ import { useDashboard } from '@/context/DashboardContext';
 import { INITIAL_BOARD_MEETINGS } from '@/data/governance';
 import { BoardMeeting, BoardCommitment } from '@/types/governance';
 import { AddCommitmentModal } from '@/components/modals/AddCommitmentModal';
+import { GovernancePageSkeleton } from '@/components/ui/Skeleton';
 
 export default function BoardGovernancePage() {
     const { globalSearchQuery, showActionToast } = useDashboard();
     const [boardMeetings, setBoardMeetings] =
-        useState<BoardMeeting[]>(INITIAL_BOARD_MEETINGS);
+        useState<BoardMeeting[]>([]);
 
     const [isLoadingCommitments, setIsLoadingCommitments] = useState(true);
     const [selectedMeetingId, setSelectedMeetingId] = useState<string>('bm-2');
@@ -30,8 +31,8 @@ export default function BoardGovernancePage() {
                 const data = await response.json();
                 const commitments = data.commitments || [];
 
-                setBoardMeetings((currentMeetings) =>
-                    currentMeetings.map((meeting) => {
+                setBoardMeetings(
+                    INITIAL_BOARD_MEETINGS.map((meeting) => {
                         const liveCommitments = commitments.filter(
                             (commitment: any) =>
                                 commitment.meetingId === meeting.id
@@ -100,6 +101,7 @@ export default function BoardGovernancePage() {
                     'Failed to load governance commitments:',
                     error
                 );
+                setBoardMeetings(INITIAL_BOARD_MEETINGS);
             } finally {
                 setIsLoadingCommitments(false);
             }
@@ -217,6 +219,10 @@ export default function BoardGovernancePage() {
             setIsGeneratingProbes(false);
         }
     };
+
+    if (boardMeetings.length === 0) {
+        return <GovernancePageSkeleton />;
+    }
 
     return (
         <div className="flex flex-col gap-5 pb-8">

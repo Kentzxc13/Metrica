@@ -8,6 +8,7 @@ import { useDashboard } from '@/context/DashboardContext';
 // import { COMPANIES } from '@/data/companies';
 import { Company } from '@/types/company';
 import { AiScreeningModal } from '@/components/modals/AiScreeningModal';
+import { ComparisonPageSkeleton } from '@/components/ui/Skeleton';
 
 // Module-level flag so it survives client-side page transitions (Comparison -> Dashboard -> Comparison),
 // but cleanly resets on page refresh/initial reload so user can test the entrance animation.
@@ -95,6 +96,10 @@ export default function CompanyComparisonPage() {
             setComparisonSelectedRows([...comparisonSelectedRows, id]);
         }
     };
+
+    if (companies.length === 0) {
+        return <ComparisonPageSkeleton />;
+    }
 
     return (
         <>

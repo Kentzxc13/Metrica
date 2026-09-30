@@ -4,39 +4,23 @@ import { useEffect, useState } from 'react';
 import { useDashboard } from '@/context/DashboardContext';
 import { CapTableHolding } from '@/types/captable';
 import { CapTableInspectorModal } from '@/components/modals/CapTableInspectorModal';
+import { CapTablePageSkeleton } from '@/components/ui/Skeleton';
 
 export default function CapTableOwnershipPage() {
-    const { globalSearchQuery, showActionToast } = useDashboard();
+    const {
+        globalSearchQuery,
+        showActionToast,
+        capTableHoldings,
+        isCapTableLoading: isLoading,
+        loadCapTable,
+    } = useDashboard();
 
-    const [capTableHoldings, setCapTableHoldings] = useState<CapTableHolding[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
     const [capTableStageFilter, setCapTableStageFilter] = useState<'All' | 'Series A' | 'Seed'>('All');
     const [selectedHoldingForModal, setSelectedHoldingForModal] = useState<CapTableHolding | null>(null);
 
     useEffect(() => {
-        const loadCapTable = async () => {
-            try {
-                setIsLoading(true);
-
-                const response = await fetch('/api/captable');
-
-                if (!response.ok) {
-                    throw new Error('Failed to load cap table');
-                }
-
-                const data = await response.json();
-
-                setCapTableHoldings(data.holdings || []);
-            } catch (error) {
-                console.error('Failed to load cap table:', error);
-                setCapTableHoldings([]);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        loadCapTable();
-    }, []);
+        loadCapTable(false);
+    }, [loadCapTable]);
 
     // Filtered holdings (driven by Global Header Search & Stage Filter)
     const filteredCapTableHoldings = capTableHoldings.filter(h => {
@@ -86,6 +70,10 @@ export default function CapTableOwnershipPage() {
         return '$' + value.toLocaleString('en-US');
     };
 
+    if (capTableHoldings.length === 0) {
+        return <CapTablePageSkeleton />;
+    }
+
     return (
         <>
             {/* Section 1: Page Heading and Filter Controls */}
@@ -121,7 +109,7 @@ export default function CapTableOwnershipPage() {
                             </div>
                             <div className="flex items-baseline gap-1.5">
                                 <span className="text-2xl font-bold font-mono text-gray-900 tracking-tight">
-                                    {isLoading ? '—' : formatKpiMoney(totalInvested)}
+                                    {formatKpiMoney(totalInvested)}
                                 </span>
                                 <span className="text-xs text-gray-400 font-normal">Deployed</span>
                             </div>
@@ -149,10 +137,10 @@ export default function CapTableOwnershipPage() {
                             </div>
                             <div className="flex items-baseline gap-1.5">
                                 <span className="text-2xl font-bold font-mono text-gray-900 tracking-tight">
-                                    {isLoading ? '—' : formatKpiMoney(totalFairValue)}
+                                    {formatKpiMoney(totalFairValue)}
                                 </span>
                                 <span className="text-xs text-emerald-600 font-medium">
-                                    {isLoading ? '—' : formatKpiMoney(totalUnrealizedGain)}
+                                    {formatKpiMoney(totalUnrealizedGain)}
                                 </span>
                             </div>
                         </div>
@@ -184,7 +172,7 @@ export default function CapTableOwnershipPage() {
                             </div>
                             <div className="flex items-baseline gap-1.5">
                                 <span className="text-2xl font-bold font-mono text-gray-900 tracking-tight">
-                                    {isLoading ? '—' : `${weightedMoic.toFixed(2)}x`}
+                                    {`${weightedMoic.toFixed(2)}x`}
                                 </span>
                                 <span className="text-xs text-gray-400 font-normal">Multiple</span>
                             </div>
@@ -217,7 +205,7 @@ export default function CapTableOwnershipPage() {
                             </div>
                             <div className="flex items-baseline gap-1.5">
                                 <span className="text-2xl font-bold font-mono text-gray-900 tracking-tight">
-                                    {isLoading ? '—' : `+${weightedIrr.toFixed(1)}%`}
+                                    {`+${weightedIrr.toFixed(1)}%`}
                                 </span>
                                 <span className="text-xs text-emerald-600 font-normal">Annualized</span>
                             </div>
@@ -290,15 +278,7 @@ export default function CapTableOwnershipPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {isLoading && (
-                                <tr>
-                                    <td colSpan={9} className="py-12 text-center text-gray-400">
-                                        Loading cap table...
-                                    </td>
-                                </tr>
-                            )}
-
-                            {!isLoading && filteredCapTableHoldings.map((h) => (
+                            {filteredCapTableHoldings.map((h) => (
                                 <tr
                                     key={h.id}
                                     onClick={() => setSelectedHoldingForModal(h)}

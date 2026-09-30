@@ -6,17 +6,20 @@ import { AuditLedgerEvent } from '@/types/ledger';
 import { AuditEventModal } from '@/components/modals/AuditEventModal';
 import { supabaseBrowser } from '@/lib/supabase-browser';
 import { formatTimeClean, getRelativeTime } from '@/utils/time';
+import { LedgerPageSkeleton } from '@/components/ui/Skeleton';
 
 // Module-level flag so it survives client-side page transitions (Ledger -> Dashboard -> Ledger),
 // but cleanly resets on page refresh/initial reload so user can test the entrance animation.
 let hasEverAnimatedLedger = false;
 
 export default function EventLedgerPage() {
-    const { globalSearchQuery, showActionToast } = useDashboard();
-
-    // --- Ledger data state ---
-    const [auditEvents, setAuditEvents] = useState<AuditLedgerEvent[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const {
+        globalSearchQuery,
+        showActionToast,
+        ledgerEvents: auditEvents,
+        isLedgerLoading: isLoading,
+        loadLedgerEvents,
+    } = useDashboard();
 
     // One-time staggered row animation state across navigation
     const [shouldAnimateRows, setShouldAnimateRows] = useState<boolean>(() => hasEverAnimatedLedger);
@@ -74,38 +77,8 @@ export default function EventLedgerPage() {
     useEffect(() => {
         let isMounted = true;
 
-        const loadLedgerEvents = async (showLoading = false) => {
-            try {
-                if (showLoading) {
-                    setIsLoading(true);
-                }
-
-                const response = await fetch('/api/ledger');
-
-                if (!response.ok) {
-                    throw new Error('Failed to load ledger events');
-                }
-
-                const data = await response.json();
-
-                if (isMounted) {
-                    setAuditEvents(data.events || []);
-                }
-            } catch (error) {
-                console.error('Failed to load ledger events:', error);
-
-                if (isMounted) {
-                    setAuditEvents([]);
-                }
-            } finally {
-                if (showLoading && isMounted) {
-                    setIsLoading(false);
-                }
-            }
-        };
-
-        // Initial ledger load
-        loadLedgerEvents(true);
+        // Silent background sync if already cached
+        loadLedgerEvents(false);
 
         // Subscribe to live payment changes
         const channel = supabaseBrowser
@@ -125,7 +98,9 @@ export default function EventLedgerPage() {
 
                     // Refresh the formatted ledger data after a
                     // database change is received.
-                    await loadLedgerEvents(false);
+                    if (isMounted) {
+                        await loadLedgerEvents(false);
+                    }
                 }
             )
             .subscribe((status) => {
@@ -139,7 +114,7 @@ export default function EventLedgerPage() {
             isMounted = false;
             supabaseBrowser.removeChannel(channel);
         };
-    }, []);
+    }, [loadLedgerEvents]);
 
     // --- Derived KPI metrics ---
     const totalEvents = auditEvents.length;
@@ -282,6 +257,10 @@ export default function EventLedgerPage() {
         );
     };
 
+    if (auditEvents.length === 0) {
+        return <LedgerPageSkeleton />;
+    }
+
     return (
         <>
             {/* BEGIN: Header & Controls */}
@@ -344,7 +323,9 @@ export default function EventLedgerPage() {
                                 <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">Total Events</span>
                             </div>
                             <div className="flex items-baseline gap-1.5">
-                                <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">{totalEvents}</span>
+                                <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">
+                                    {totalEvents}
+                                </span>
                                 <span className="text-xs text-gray-400 font-normal">Today</span>
                             </div>
                         </div>
@@ -375,7 +356,9 @@ export default function EventLedgerPage() {
                                 <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">Net MRR Velocity</span>
                             </div>
                             <div className="flex items-baseline gap-1.5">
-                                <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">{formattedNetMrr}</span>
+                                <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">
+                                    {formattedNetMrr}
+                                </span>
                                 <span className="text-xs text-gray-400 font-normal">Added</span>
                             </div>
                         </div>
@@ -406,7 +389,9 @@ export default function EventLedgerPage() {
                                 <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">Delivered Events</span>
                             </div>
                             <div className="flex items-baseline gap-1.5">
-                                <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">{deliveredEvents}</span>
+                                <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">
+                                    {deliveredEvents}
+                                </span>
                                 <span className="text-xs text-gray-400 font-normal">Delivered</span>
                             </div>
                         </div>
@@ -435,7 +420,9 @@ export default function EventLedgerPage() {
                                 <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">Flagged Events</span>
                             </div>
                             <div className="flex items-baseline gap-1.5">
-                                <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">{flaggedEvents}</span>
+                                <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">
+                                    {flaggedEvents}
+                                </span>
                                 <span className="text-xs text-gray-400 font-normal">Action Required</span>
                             </div>
                         </div>
@@ -681,7 +668,7 @@ export default function EventLedgerPage() {
                             {filteredAuditEvents.length === 0 && (
                                 <tr>
                                     <td colSpan={7} className="py-12 text-center text-gray-400">
-                                        {isLoading ? 'Loading telemetry events…' : 'No telemetry events match your criteria.'}
+                                        No telemetry events match your criteria.
                                     </td>
                                 </tr>
                             )}

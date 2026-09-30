@@ -67,3 +67,28 @@ export interface Transaction {
         [key: string]: any;
     };
 }
+
+export interface DashboardHistoryItem {
+    metricDate: string;
+    revenue: number;
+    paymentCount: number;
+    customerCount: number;
+    churnCount: number;
+    status: string;
+}
+
+export interface DashboardSummary {
+    metricDate: string;
+    revenue: number;
+    paymentCount: number;
+    customerCount: number;
+    churnCount: number;
+    status: string;
+    revenueGrowth: number;
+    paymentGrowth: number;
+    customerGrowth: number;
+    churnGrowth: number;
+    conversionRate?: string;
+    conversionGrowth?: number;
+    history?: DashboardHistoryItem[];
+}
