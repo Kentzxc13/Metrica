@@ -1848,7 +1848,7 @@ export default function DashboardOverviewPage() {
                               : tx.status === "Duplicated"
                                 ? "bg-amber-50 text-amber-800 border border-amber-300/80"
                                 : tx.status === "Refunded"
-                                  ? "bg-purple-50 text-purple-700 border border-purple-200/60"
+                                  ? "bg-gray-100 text-gray-600 border border-gray-200/80"
                                   : "bg-gray-100 text-gray-600 border border-gray-200/80"
                         }`}
                       >
@@ -1861,7 +1861,7 @@ export default function DashboardOverviewPage() {
                                 : tx.status === "Duplicated"
                                   ? "bg-amber-500 animate-pulse"
                                   : tx.status === "Refunded"
-                                    ? "bg-purple-500"
+                                    ? "bg-gray-400"
                                     : "bg-gray-400"
                           }`}
                         ></span>
