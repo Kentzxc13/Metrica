@@ -709,8 +709,27 @@ export default function EventLedgerPage() {
 
                             {filteredAuditEvents.length === 0 && (
                                 <tr>
-                                    <td colSpan={7} className="py-12 text-center text-gray-400">
-                                        {isLoading ? 'Loading telemetry events…' : 'No telemetry events match your criteria.'}
+                                    <td colSpan={7} className="py-16 text-center">
+                                        {isLoading ? (
+                                            <div className="flex flex-col items-center justify-center gap-2 text-gray-400">
+                                                <div className="w-5 h-5 border-2 border-zinc-300 border-t-zinc-900 rounded-full animate-spin"></div>
+                                                <span className="text-xs">Connecting to live Supabase ledger…</span>
+                                            </div>
+                                        ) : (
+                                            <div className="max-w-sm mx-auto text-center space-y-3">
+                                                <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-zinc-800 flex items-center justify-center mx-auto text-gray-400">
+                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                                    </svg>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <div className="text-xs font-semibold text-gray-900 dark:text-gray-100">No Webhook Events Recorded Yet</div>
+                                                    <p className="text-[11px] text-gray-500">
+                                                        Mock data has been removed. Trigger a test event via Stripe CLI or click the <strong className="text-indigo-600">Stripe Sandbox</strong> button above to populate the ledger in real-time.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
                                     </td>
                                 </tr>
                             )}
