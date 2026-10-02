@@ -1,0 +1,252 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-inter), "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-jetbrains), "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  
+  --color-zinc-50: #FAFAFA;
+  --color-zinc-100: #F4F4F5;
+  --color-zinc-200: #E4E4E7;
+  --color-zinc-500: #71717A;
+  --color-zinc-950: #09090B;
+  
+  --color-emerald-600: #059669;
+  --color-emerald-50: #ECFDF5;
+  
+  --color-rose-600: #E11D48;
+  --color-rose-50: #FFF1F2;
+  
+  --color-dashboard-bg: #f3f4f7;
+  --color-dashboard-card: #ffffff;
+  --color-dashboard-sidebar: #fbfcfd;
+  --color-dashboard-border: #eaecef;
+  --color-dashboard-textPrimary: #111827;
+  --color-dashboard-textSecondary: #6b7280;
+  --color-dashboard-textMuted: #9ca3af;
+  --color-dashboard-accent: #18181b;
+  --color-dashboard-accentHover: #27272a;
+
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-floating: 0 12px 24px -6px rgba(0, 0, 0, 0.08), 0 4px 12px -4px rgba(0, 0, 0, 0.03);
+}
+
+html {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.16) transparent;
+}
+
+body {
+  background: var(--color-zinc-50);
+  color: var(--color-zinc-950);
+}
+
+/* Scope Modern Minimalist Slim Scrollbar ONLY to the main browser window */
+html::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+html::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.14);
+  border-radius: 9999px;
+}
+
+html::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.28);
+}
+
+/* Modern Minimalist Slim Scrollbar for Internal Containers */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
+}
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.32);
+}
+
+/* Bulletproof Invisible Scrollbar Utility (For Sidebar & Panels) */
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+/* Base resets & typography */
+h1, h2, h3, h4, h5, h6 {
+  letter-spacing: -0.025em;
+}
+
+/* Utility classes for design tokens */
+@layer utilities {
+  .metric-display {
+    font-size: 26px;
+    font-weight: 600;
+    line-height: 32px;
+    letter-spacing: -0.03em;
+  }
+  
+  .metric-tabular {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 18px;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+  }
+  
+  .label-caps {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 14px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  
+  .badge-sm {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 14px;
+  }
+  
+  .card-shadow {
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04), 0 4px 12px 0 rgba(0, 0, 0, 0.03);
+  }
+}
+
+
+        .matrix-grid {
+            display: grid;
+            grid-template-rows: repeat(12, 1fr);
+            gap: 3px;
+        }
+
+        .matrix-cell {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+            transition: background-color 0.15s ease;
+        }
+
+        .matrix-cell-empty {
+            background-color: #f1f3f5;
+        }
+
+        .matrix-cell-new {
+            background-color: #dad9e3;
+        }
+
+        .matrix-cell-active {
+            background-color: #18181b;
+        }
+
+        .matrix-cell-active:hover {
+            background-color: #000000;
+            transform: scale(1.1);
+        }
+
+/* Recent Events Table Animation (rows: 380ms, 70ms apart, ease-out; hover: lift 1px, 150ms) */
+@keyframes rowFadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.event-row-hidden {
+  opacity: 0 !important;
+  transform: translateY(12px) !important;
+  pointer-events: none;
+}
+
+.event-row-animated {
+  opacity: 0;
+  transform: translateY(12px);
+  animation: rowFadeInUp 380ms ease-out both;
+}
+
+.event-row-animated:nth-child(1) { animation-delay: 0ms; }
+.event-row-animated:nth-child(2) { animation-delay: 70ms; }
+.event-row-animated:nth-child(3) { animation-delay: 140ms; }
+.event-row-animated:nth-child(4) { animation-delay: 210ms; }
+.event-row-animated:nth-child(5) { animation-delay: 280ms; }
+.event-row-animated:nth-child(6) { animation-delay: 350ms; }
+.event-row-animated:nth-child(n+7) { animation-delay: 420ms; }
+
+.event-row-static {
+  opacity: 1 !important;
+  transform: none !important;
+  animation: none !important;
+}
+
+/* Row Hover: lift 1px, 150ms */
+.event-row-interactive {
+  transition: transform 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
+}
+.event-row-interactive:hover {
+  transform: translateY(-1px);
+  background-color: #ffffff;
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.05);
+  position: relative;
+  z-index: 10;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .event-row-hidden,
+  .event-row-animated,
+  .event-row-static {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+  }
+}
+
+/* Waving hand micro-animation */
+@keyframes wave-animation {
+  0% { transform: rotate(0deg); }
+  10% { transform: rotate(14deg); }
+  20% { transform: rotate(-8deg); }
+  30% { transform: rotate(14deg); }
+  40% { transform: rotate(-4deg); }
+  50% { transform: rotate(10deg); }
+  60% { transform: rotate(0deg); }
+  100% { transform: rotate(0deg); }
+}
+
+.animate-wave {
+  display: inline-block;
+  transform-origin: 70% 70%;
+  animation: wave-animation 2.2s infinite ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-wave {
+    animation: none !important;
+  }
+}
