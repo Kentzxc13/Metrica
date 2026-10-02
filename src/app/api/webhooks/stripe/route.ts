@@ -160,10 +160,11 @@ export async function POST(request: NextRequest) {
             message: 'Stripe webhook received (offline mode)',
             normalized,
         });
-    } catch (err: any) {
+    } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Internal server error';
         console.error('[Stripe Webhook] Server error:', err);
         return NextResponse.json(
-            { success: false, error: err.message || 'Internal server error' },
+            { success: false, error: errorMessage },
             { status: 500 }
         );
     }
