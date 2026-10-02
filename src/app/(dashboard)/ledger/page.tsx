@@ -769,16 +769,16 @@ export default function EventLedgerPage() {
                                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                 disabled={currentPage === 1}
                                 aria-label="Previous Page"
-                                className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-600 hover:text-black hover:bg-white hover:shadow-2xs border border-transparent hover:border-gray-200 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
+                                className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-600 hover:text-black hover:bg-zinc-100/80 disabled:opacity-25 disabled:pointer-events-none transition-all active:scale-95 cursor-pointer"
                             >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M15 19l-7-7 7-7" />
                                 </svg>
                             </button>
 
-                            {/* Page Numbers & Ellipsis Dots */}
+                            {/* Page Numbers & Elegant 3-Circle Dots */}
                             {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNumber) => {
-                                // Dynamic window: always show first, last, current, and siblings
+                                // Dynamic window: always show first, last, current, and adjacent pages
                                 if (
                                     pageNumber === 1 ||
                                     pageNumber === totalPages ||
@@ -789,10 +789,10 @@ export default function EventLedgerPage() {
                                         <button
                                             key={pageNumber}
                                             onClick={() => setCurrentPage(pageNumber)}
-                                            className={`min-w-8 h-8 px-2 rounded-lg text-xs font-semibold font-mono transition-all cursor-pointer ${
+                                            className={`w-8 h-8 rounded-lg text-xs font-semibold font-mono transition-all flex items-center justify-center cursor-pointer ${
                                                 isCurrent
-                                                    ? 'bg-zinc-900 text-white shadow-xs'
-                                                    : 'text-gray-600 hover:text-black hover:bg-white hover:shadow-2xs border border-transparent hover:border-gray-200'
+                                                    ? 'bg-zinc-900 text-white shadow-xs font-bold'
+                                                    : 'text-zinc-600 hover:text-black hover:bg-zinc-100/80 active:scale-95'
                                             }`}
                                         >
                                             {pageNumber}
@@ -803,9 +803,11 @@ export default function EventLedgerPage() {
                                     pageNumber === currentPage + 2
                                 ) {
                                     return (
-                                        <span key={pageNumber} className="w-6 text-center text-gray-400 font-mono text-xs select-none">
-                                            &hellip;
-                                        </span>
+                                        <div key={pageNumber} className="w-7 h-8 flex items-center justify-center gap-1 text-zinc-400 select-none">
+                                            <span className="w-1 h-1 rounded-full bg-zinc-300 dark:bg-zinc-600"></span>
+                                            <span className="w-1 h-1 rounded-full bg-zinc-300 dark:bg-zinc-600"></span>
+                                            <span className="w-1 h-1 rounded-full bg-zinc-300 dark:bg-zinc-600"></span>
+                                        </div>
                                     );
                                 }
                                 return null;
@@ -816,10 +818,10 @@ export default function EventLedgerPage() {
                                 onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                                 disabled={currentPage === totalPages}
                                 aria-label="Next Page"
-                                className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-600 hover:text-black hover:bg-white hover:shadow-2xs border border-transparent hover:border-gray-200 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
+                                className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-600 hover:text-black hover:bg-zinc-100/80 disabled:opacity-25 disabled:pointer-events-none transition-all active:scale-95 cursor-pointer"
                             >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M9 5l7 7-7 7" />
                                 </svg>
                             </button>
                         </div>
