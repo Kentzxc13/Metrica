@@ -16,10 +16,10 @@ export const INITIAL_DATA_PIPELINES: DataPipeline[] = [
     },
     {
         id: 'pipe-payloop',
-        name: 'PayLoop Stripe Connect Pipeline',
+        name: 'PayLoop Stripe Ingestion Pipeline',
         companyName: 'PayLoop Platform',
         initials: 'PL',
-        protocol: 'Stripe Connect',
+        protocol: 'REST Webhook',
         endpoint: '/api/webhooks/stripe?company_id=payloop',
         syncRate: '48 events/sec',
         latency: '19ms',
