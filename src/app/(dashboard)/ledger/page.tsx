@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useDashboard } from '@/context/DashboardContext';
 import { AuditLedgerEvent } from '@/types/ledger';
 import { AuditEventModal } from '@/components/modals/AuditEventModal';
+import { StripeSimulatorModal } from '@/components/dev/StripeSimulatorModal';
 import { supabaseBrowser } from '@/lib/supabase-browser';
 import { formatTimeClean, getRelativeTime } from '@/utils/time';
 
@@ -195,6 +196,7 @@ export default function EventLedgerPage() {
     const [isLedgerDropdownOpen, setIsLedgerDropdownOpen] = useState<boolean>(false);
     const [selectedAuditEvent, setSelectedAuditEvent] = useState<AuditLedgerEvent | null>(null);
     const [activeLedgerMenuId, setActiveLedgerMenuId] = useState<string | null>(null);
+    const [isStripeSimulatorOpen, setIsStripeSimulatorOpen] = useState<boolean>(false);
 
     const ledgerCategories = useMemo(() => {
         const unique = Array.from(new Set(auditEvents.map(e => e.category)));
@@ -321,6 +323,14 @@ export default function EventLedgerPage() {
                             </div>
                         )}
                     </div>
+
+                    {/* Stripe Sandbox Simulator (Dev / Sandbox trigger) */}
+                    <button
+                        onClick={() => setIsStripeSimulatorOpen(true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 text-xs font-semibold hover:bg-indigo-100/70 dark:hover:bg-indigo-900/50 transition-colors shadow-xs cursor-pointer">
+                        <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+                        <span>Stripe Sandbox</span>
+                    </button>
 
                     {/* Export Ledger (Primary Action - Standard Black) */}
                     <button
@@ -695,6 +705,12 @@ export default function EventLedgerPage() {
                 event={selectedAuditEvent}
                 onClose={() => setSelectedAuditEvent(null)}
                 onShowToast={showActionToast}
+            />
+
+            {/* Detachable Stripe Sandbox Simulator Modal */}
+            <StripeSimulatorModal
+                isOpen={isStripeSimulatorOpen}
+                onClose={() => setIsStripeSimulatorOpen(false)}
             />
         </>
     );
