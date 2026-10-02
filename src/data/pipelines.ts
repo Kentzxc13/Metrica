@@ -3,16 +3,16 @@ import { DataPipeline } from '@/types/pipeline';
 export const INITIAL_DATA_PIPELINES: DataPipeline[] = [
     {
         id: 'pipe-1',
-        name: 'Stripe Billing Telemetry',
-        companyName: 'CloudNest',
-        initials: 'CN',
-        protocol: 'Stripe Connect',
-        endpoint: 'api.metrica.io/v1/telemetry/cloudnest/stripe',
-        syncRate: '24 events/sec',
-        latency: '34ms',
-        lastPayloadSynced: '3s ago',
+        name: 'Stripe Sandbox Webhook Ingestion',
+        companyName: 'Metrica Platform',
+        initials: 'ST',
+        protocol: 'REST Webhook',
+        endpoint: '/api/webhooks/stripe',
+        syncRate: 'Real-time Push',
+        latency: '18ms',
+        lastPayloadSynced: 'Just now',
         status: 'Healthy',
-        sha256Verification: 'sha256:e3b0c44298fc1c149afbf4c8996fb924'
+        sha256Verification: 'sha256:whsec_86769b563eec0dd31dd47dcb9fa44010805cf1382ba05c7f3a00e4152ff10062'
     },
     {
         id: 'pipe-2',

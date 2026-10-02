@@ -108,7 +108,23 @@ export default function EventLedgerPage() {
         // Initial ledger load
         loadLedgerEvents(true);
 
-        // Subscribe to live payment changes
+        // Smart polling ticker (every 3 seconds) as bulletproof fallback if WebSocket replication is delayed/disabled
+        const pollInterval = window.setInterval(() => {
+            if (document.visibilityState === 'visible') {
+                loadLedgerEvents(false);
+            }
+        }, 3000);
+
+        // Immediate reload when user focuses or returns to the browser tab
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                loadLedgerEvents(false);
+            }
+        };
+        window.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('focus', handleVisibilityChange);
+
+        // Subscribe to live payment changes via Supabase WebSocket
         const channel = supabaseBrowser
             .channel('metrica-event-ledger')
             .on(
@@ -138,6 +154,9 @@ export default function EventLedgerPage() {
 
         return () => {
             isMounted = false;
+            window.clearInterval(pollInterval);
+            window.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('focus', handleVisibilityChange);
             supabaseBrowser.removeChannel(channel);
         };
     }, []);
