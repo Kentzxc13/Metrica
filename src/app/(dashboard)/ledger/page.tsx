@@ -217,6 +217,10 @@ export default function EventLedgerPage() {
     const [activeLedgerMenuId, setActiveLedgerMenuId] = useState<string | null>(null);
     const [isStripeSimulatorOpen, setIsStripeSimulatorOpen] = useState<boolean>(false);
 
+    // Pagination state (10 transactions per page)
+    const [currentPage, setCurrentPage] = useState<number>(1);
+    const itemsPerPage = 10;
+
     const ledgerCategories = useMemo(() => {
         const unique = Array.from(new Set(auditEvents.map(e => e.category)));
         return ['All Events', ...unique];
@@ -228,16 +232,29 @@ export default function EventLedgerPage() {
     };
 
     // Filter audit events (driven by Global Search & Category Filter)
-    const filteredAuditEvents = auditEvents.filter(e => {
-        const matchesSearch = e.name.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
-                              e.code.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
-                              e.customer.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
-                              e.company.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
-                              e.gateway.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
-                              e.payload.invoiceId.toLowerCase().includes(globalSearchQuery.toLowerCase());
-        const matchesCategory = ledgerCategoryFilter === 'All Events' || e.category === ledgerCategoryFilter;
-        return matchesSearch && matchesCategory;
-    });
+    const filteredAuditEvents = useMemo(() => {
+        return auditEvents.filter(e => {
+            const matchesSearch = e.name.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
+                                  e.code.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
+                                  e.customer.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
+                                  e.company.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
+                                  e.gateway.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
+                                  e.payload.invoiceId.toLowerCase().includes(globalSearchQuery.toLowerCase());
+            const matchesCategory = ledgerCategoryFilter === 'All Events' || e.category === ledgerCategoryFilter;
+            return matchesSearch && matchesCategory;
+        });
+    }, [auditEvents, globalSearchQuery, ledgerCategoryFilter]);
+
+    // Reset to page 1 whenever search query or category filter changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [globalSearchQuery, ledgerCategoryFilter]);
+
+    const totalPages = Math.max(1, Math.ceil(filteredAuditEvents.length / itemsPerPage));
+    const paginatedAuditEvents = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return filteredAuditEvents.slice(startIndex, startIndex + itemsPerPage);
+    }, [filteredAuditEvents, currentPage, itemsPerPage]);
 
     const handleExportLedgerCsv = () => {
         const headers = [
@@ -519,7 +536,7 @@ export default function EventLedgerPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
-                            {filteredAuditEvents.map((evt, index) => {
+                            {paginatedAuditEvents.map((evt, index) => {
                                 const rowClass = !shouldAnimateRows
                                     ? "event-row-hidden"
                                     : hasAlreadyAnimated
@@ -736,6 +753,78 @@ export default function EventLedgerPage() {
                         </tbody>
                     </table>
                 </div>
+
+                {/* Impeccable Pagination Bar (10 transactions per page with < > and dots) */}
+                {filteredAuditEvents.length > 0 && (
+                    <div className="px-5 py-3.5 border-t border-gray-100 flex flex-wrap items-center justify-between gap-3 bg-gray-50/40 select-none">
+                        <div className="text-xs text-gray-500 font-medium">
+                            Showing <span className="font-semibold text-gray-800 font-mono">{Math.min(filteredAuditEvents.length, (currentPage - 1) * itemsPerPage + 1)}</span> to{' '}
+                            <span className="font-semibold text-gray-800 font-mono">{Math.min(filteredAuditEvents.length, currentPage * itemsPerPage)}</span> of{' '}
+                            <span className="font-semibold text-gray-800 font-mono">{filteredAuditEvents.length}</span> transactions
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                            {/* Previous Arrow Button */}
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                disabled={currentPage === 1}
+                                aria-label="Previous Page"
+                                className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-600 hover:text-black hover:bg-white hover:shadow-2xs border border-transparent hover:border-gray-200 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+                                </svg>
+                            </button>
+
+                            {/* Page Numbers & Ellipsis Dots */}
+                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNumber) => {
+                                // Dynamic window: always show first, last, current, and siblings
+                                if (
+                                    pageNumber === 1 ||
+                                    pageNumber === totalPages ||
+                                    (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
+                                ) {
+                                    const isCurrent = pageNumber === currentPage;
+                                    return (
+                                        <button
+                                            key={pageNumber}
+                                            onClick={() => setCurrentPage(pageNumber)}
+                                            className={`min-w-8 h-8 px-2 rounded-lg text-xs font-semibold font-mono transition-all cursor-pointer ${
+                                                isCurrent
+                                                    ? 'bg-zinc-900 text-white shadow-xs'
+                                                    : 'text-gray-600 hover:text-black hover:bg-white hover:shadow-2xs border border-transparent hover:border-gray-200'
+                                            }`}
+                                        >
+                                            {pageNumber}
+                                        </button>
+                                    );
+                                } else if (
+                                    pageNumber === currentPage - 2 ||
+                                    pageNumber === currentPage + 2
+                                ) {
+                                    return (
+                                        <span key={pageNumber} className="w-6 text-center text-gray-400 font-mono text-xs select-none">
+                                            &hellip;
+                                        </span>
+                                    );
+                                }
+                                return null;
+                            })}
+
+                            {/* Next Arrow Button */}
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                disabled={currentPage === totalPages}
+                                aria-label="Next Page"
+                                className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-600 hover:text-black hover:bg-white hover:shadow-2xs border border-transparent hover:border-gray-200 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                )}
             </section>
 
             {/* Audit Event Modal */}
