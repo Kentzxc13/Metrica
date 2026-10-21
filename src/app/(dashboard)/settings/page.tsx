@@ -1,11 +1,25 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDashboard } from '@/context/DashboardContext';
+import LiveStatusDot from '@/components/LiveStatusDot';
+import { SettingsContentSkeleton } from '@/components/SkeletonShimmer';
 
 export default function SettingsPage() {
-    const { showActionToast } = useDashboard();
+    const { showActionToast, isPageVisited, markPageVisited } = useDashboard();
+    const alreadyVisited = isPageVisited('/settings');
+    const [isLoading, setIsLoading] = useState(!alreadyVisited);
     const [activeTab, setActiveTab] = useState<'profile' | 'thresholds' | 'notifications' | 'security'>('profile');
+
+    useEffect(() => {
+        if (!alreadyVisited) {
+            const timer = setTimeout(() => {
+                setIsLoading(false);
+                markPageVisited('/settings');
+            }, 500);
+            return () => clearTimeout(timer);
+        }
+    }, [alreadyVisited, markPageVisited]);
 
     // Profile state
     const [profile, setProfile] = useState({
@@ -58,7 +72,10 @@ export default function SettingsPage() {
             {/* Section 1: Page Header */}
             <section className="flex flex-wrap items-center justify-between gap-4" data-purpose="settings-header">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 tracking-tight">System Settings</h1>
+                    <div className="flex items-center gap-2.5">
+                        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">System Settings</h1>
+                        <LiveStatusDot />
+                    </div>
                     <p className="text-xs text-gray-500 mt-1">Configure investor credentials, governance thresholds, notification dispatch, and security keys</p>
                 </div>
                 <div className="flex items-center gap-2.5">
@@ -98,6 +115,10 @@ export default function SettingsPage() {
             </div>
 
             {/* Section 3: Tab Content Area */}
+            {isLoading ? (
+                <SettingsContentSkeleton />
+            ) : (
+                <>
             {/* Tab 1: General Profile */}
             {activeTab === 'profile' && (
                 <section className="bg-white rounded-2xl border border-gray-200/80 p-6 shadow-card space-y-6" data-purpose="profile-settings">
@@ -477,6 +498,8 @@ export default function SettingsPage() {
                         </button>
                     </div>
                 </section>
+            )}
+            </>
             )}
         </div>
     );

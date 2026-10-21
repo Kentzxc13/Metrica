@@ -4,19 +4,23 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useDashboard } from '@/context/DashboardContext';
 import { AuditLedgerEvent } from '@/types/ledger';
 import { AuditEventModal } from '@/components/modals/AuditEventModal';
+import { StripeSimulatorModal } from '@/components/dev/StripeSimulatorModal';
 import { supabaseBrowser } from '@/lib/supabase-browser';
 import { formatTimeClean, getRelativeTime } from '@/utils/time';
+import { SkeletonBone, KpiCardSkeleton } from '@/components/SkeletonShimmer';
+import { LiveStatusDot } from '@/components/LiveStatusDot';
 
 // Module-level flag so it survives client-side page transitions (Ledger -> Dashboard -> Ledger),
 // but cleanly resets on page refresh/initial reload so user can test the entrance animation.
 let hasEverAnimatedLedger = false;
 
 export default function EventLedgerPage() {
-    const { globalSearchQuery, showActionToast } = useDashboard();
+    const { globalSearchQuery, showActionToast, isPageVisited, markPageVisited } = useDashboard();
+    const alreadyVisited = isPageVisited('/ledger');
 
     // --- Ledger data state ---
     const [auditEvents, setAuditEvents] = useState<AuditLedgerEvent[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(!alreadyVisited);
 
     // One-time staggered row animation state across navigation
     const [shouldAnimateRows, setShouldAnimateRows] = useState<boolean>(() => hasEverAnimatedLedger);
@@ -98,16 +102,35 @@ export default function EventLedgerPage() {
                     setAuditEvents([]);
                 }
             } finally {
-                if (showLoading && isMounted) {
-                    setIsLoading(false);
+                if (isMounted) {
+                    if (showLoading) {
+                        setIsLoading(false);
+                    }
+                    markPageVisited('/ledger');
                 }
             }
         };
 
         // Initial ledger load
-        loadLedgerEvents(true);
+        loadLedgerEvents(!alreadyVisited);
 
-        // Subscribe to live payment changes
+        // Smart polling ticker (every 3 seconds) as bulletproof fallback if WebSocket replication is delayed/disabled
+        const pollInterval = window.setInterval(() => {
+            if (document.visibilityState === 'visible') {
+                loadLedgerEvents(false);
+            }
+        }, 3000);
+
+        // Immediate reload when user focuses or returns to the browser tab
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                loadLedgerEvents(false);
+            }
+        };
+        window.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('focus', handleVisibilityChange);
+
+        // Subscribe to live payment changes via Supabase WebSocket
         const channel = supabaseBrowser
             .channel('metrica-event-ledger')
             .on(
@@ -137,6 +160,9 @@ export default function EventLedgerPage() {
 
         return () => {
             isMounted = false;
+            window.clearInterval(pollInterval);
+            window.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('focus', handleVisibilityChange);
             supabaseBrowser.removeChannel(channel);
         };
     }, []);
@@ -195,6 +221,11 @@ export default function EventLedgerPage() {
     const [isLedgerDropdownOpen, setIsLedgerDropdownOpen] = useState<boolean>(false);
     const [selectedAuditEvent, setSelectedAuditEvent] = useState<AuditLedgerEvent | null>(null);
     const [activeLedgerMenuId, setActiveLedgerMenuId] = useState<string | null>(null);
+    const [isStripeSimulatorOpen, setIsStripeSimulatorOpen] = useState<boolean>(false);
+
+    // Pagination state (10 transactions per page)
+    const [currentPage, setCurrentPage] = useState<number>(1);
+    const itemsPerPage = 10;
 
     const ledgerCategories = useMemo(() => {
         const unique = Array.from(new Set(auditEvents.map(e => e.category)));
@@ -207,16 +238,29 @@ export default function EventLedgerPage() {
     };
 
     // Filter audit events (driven by Global Search & Category Filter)
-    const filteredAuditEvents = auditEvents.filter(e => {
-        const matchesSearch = e.name.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
-                              e.code.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
-                              e.customer.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
-                              e.company.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
-                              e.gateway.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
-                              e.payload.invoiceId.toLowerCase().includes(globalSearchQuery.toLowerCase());
-        const matchesCategory = ledgerCategoryFilter === 'All Events' || e.category === ledgerCategoryFilter;
-        return matchesSearch && matchesCategory;
-    });
+    const filteredAuditEvents = useMemo(() => {
+        return auditEvents.filter(e => {
+            const matchesSearch = e.name.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
+                                  e.code.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
+                                  e.customer.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
+                                  e.company.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
+                                  e.gateway.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
+                                  e.payload.invoiceId.toLowerCase().includes(globalSearchQuery.toLowerCase());
+            const matchesCategory = ledgerCategoryFilter === 'All Events' || e.category === ledgerCategoryFilter;
+            return matchesSearch && matchesCategory;
+        });
+    }, [auditEvents, globalSearchQuery, ledgerCategoryFilter]);
+
+    // Reset to page 1 whenever search query or category filter changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [globalSearchQuery, ledgerCategoryFilter]);
+
+    const totalPages = Math.max(1, Math.ceil(filteredAuditEvents.length / itemsPerPage));
+    const paginatedAuditEvents = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return filteredAuditEvents.slice(startIndex, startIndex + itemsPerPage);
+    }, [filteredAuditEvents, currentPage, itemsPerPage]);
 
     const handleExportLedgerCsv = () => {
         const headers = [
@@ -287,7 +331,10 @@ export default function EventLedgerPage() {
             {/* BEGIN: Header & Controls */}
             <section className="flex flex-wrap items-center justify-between gap-4" data-purpose="header-greeting-controls">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Event Ledger</h1>
+                    <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center">
+                        <span>Event Ledger</span>
+                        <LiveStatusDot isLoading={isLoading} size={9} />
+                    </h1>
                     <p className="text-xs text-gray-400 mt-0.5">Immutable financial telemetry &amp; real-time webhook audit trail</p>
                 </div>
 
@@ -322,6 +369,14 @@ export default function EventLedgerPage() {
                         )}
                     </div>
 
+                    {/* Stripe Sandbox Simulator (Dev / Sandbox trigger) */}
+                    <button
+                        onClick={() => setIsStripeSimulatorOpen(true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 text-xs font-semibold hover:bg-indigo-100/70 dark:hover:bg-indigo-900/50 transition-colors shadow-xs cursor-pointer">
+                        <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+                        <span>Stripe Sandbox</span>
+                    </button>
+
                     {/* Export Ledger (Primary Action - Standard Black) */}
                     <button
                         onClick={handleExportLedgerCsv}
@@ -336,18 +391,27 @@ export default function EventLedgerPage() {
 
             {/* Section 1: 4 Top Telemetry KPI Cards */}
             <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" data-purpose="ledger-kpi-cards">
-                {/* Card 1: Total Events Processed */}
-                <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-card flex flex-col justify-between hover:shadow-floating transition-shadow">
-                    <div className="flex justify-between items-start">
-                        <div className="space-y-1">
-                            <div className="flex items-center gap-1.5">
-                                <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">Total Events</span>
-                            </div>
-                            <div className="flex items-baseline gap-1.5">
-                                <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">{totalEvents}</span>
-                                <span className="text-xs text-gray-400 font-normal">Today</span>
-                            </div>
-                        </div>
+                {isLoading ? (
+                    <>
+                        <KpiCardSkeleton />
+                        <KpiCardSkeleton />
+                        <KpiCardSkeleton />
+                        <KpiCardSkeleton />
+                    </>
+                ) : (
+                    <>
+                        {/* Card 1: Total Events Processed */}
+                        <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-card flex flex-col justify-between hover:shadow-floating transition-shadow">
+                            <div className="flex justify-between items-start">
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">Total Events</span>
+                                    </div>
+                                    <div className="flex items-baseline gap-1.5">
+                                        <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">{totalEvents}</span>
+                                        <span className="text-xs text-gray-400 font-normal">Today</span>
+                                    </div>
+                                </div>
                         <div className="flex items-end gap-1 h-8 pt-1">
                             <div className="w-1 bg-gray-200 rounded-full h-3"></div>
                             <div className="w-1 bg-gray-300 rounded-full h-5"></div>
@@ -461,6 +525,8 @@ export default function EventLedgerPage() {
                         </button>
                     </div>
                 </div>
+                    </>
+                )}
             </section>
 
             {/* Section 2: Immutable Telemetry Table */}
@@ -490,12 +556,49 @@ export default function EventLedgerPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
-                            {filteredAuditEvents.map((evt, index) => {
+                            {isLoading ? (
+                                Array.from({ length: 6 }).map((_, rIdx) => (
+                                    <tr key={`ledger-skel-${rIdx}`} className="hover:bg-gray-50/40">
+                                        <td className="py-3.5 px-3">
+                                            <div className="space-y-1">
+                                                <SkeletonBone width={70} height={13} borderRadius={3} />
+                                                <SkeletonBone width={45} height={10} borderRadius={2} />
+                                            </div>
+                                        </td>
+                                        <td className="py-3.5 px-3">
+                                            <div className="space-y-1">
+                                                <SkeletonBone width={110} height={13} borderRadius={3} />
+                                                <SkeletonBone width={80} height={10} borderRadius={2} />
+                                            </div>
+                                        </td>
+                                        <td className="py-3.5 px-3">
+                                            <div className="space-y-1">
+                                                <SkeletonBone width={120} height={13} borderRadius={3} />
+                                                <SkeletonBone width={65} height={10} borderRadius={2} />
+                                            </div>
+                                        </td>
+                                        <td className="py-3.5 px-3">
+                                            <SkeletonBone width={60} height={14} borderRadius={3} />
+                                        </td>
+                                        <td className="py-3.5 px-3">
+                                            <SkeletonBone width={85} height={13} borderRadius={3} />
+                                        </td>
+                                        <td className="py-3.5 px-3">
+                                            <SkeletonBone width={90} height={20} borderRadius={99} />
+                                        </td>
+                                        <td className="py-3.5 px-3 text-center w-20">
+                                            <SkeletonBone width={28} height={28} borderRadius={8} className="mx-auto" />
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                paginatedAuditEvents.map((evt, index) => {
                                 const rowClass = !shouldAnimateRows
                                     ? "event-row-hidden"
                                     : hasAlreadyAnimated
                                         ? "event-row-static event-row-interactive"
                                         : "event-row-animated event-row-interactive";
+
 
                                 const isSuccess = evt.status === 'Delivered 200 OK' || evt.status.toLowerCase().includes('ok') || evt.status.toLowerCase().includes('success');
                                 const isPending = evt.status === 'Pending Retry' || evt.status.toLowerCase().includes('pending');
@@ -676,18 +779,106 @@ export default function EventLedgerPage() {
                                     </td>
                                 </tr>
                             );
-                        })}
+                        })
+                    )}
 
-                            {filteredAuditEvents.length === 0 && (
+                            {!isLoading && filteredAuditEvents.length === 0 && (
                                 <tr>
-                                    <td colSpan={7} className="py-12 text-center text-gray-400">
-                                        {isLoading ? 'Loading telemetry events…' : 'No telemetry events match your criteria.'}
+                                    <td colSpan={7} className="py-16 text-center">
+                                        <div className="max-w-sm mx-auto text-center space-y-3">
+                                            <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center mx-auto text-gray-400">
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                                </svg>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <div className="text-xs font-semibold text-gray-900">No Webhook Events Recorded Yet</div>
+                                                <p className="text-[11px] text-gray-500">
+                                                    Mock data has been removed. Trigger a test event via Stripe CLI or click the <strong className="text-zinc-900">Stripe Sandbox</strong> button above to populate the ledger in real-time.
+                                                </p>
+                                            </div>
+                                        </div>
                                     </td>
                                 </tr>
                             )}
+
                         </tbody>
                     </table>
                 </div>
+
+                {/* Impeccable Pagination Bar (10 transactions per page with < > and dots) */}
+                {filteredAuditEvents.length > 0 && (
+                    <div className="px-5 py-3.5 border-t border-gray-100 flex flex-wrap items-center justify-between gap-3 bg-gray-50/40 select-none">
+                        <div className="text-xs text-gray-500 font-medium">
+                            Showing <span className="font-semibold text-gray-800 font-mono">{Math.min(filteredAuditEvents.length, (currentPage - 1) * itemsPerPage + 1)}</span> to{' '}
+                            <span className="font-semibold text-gray-800 font-mono">{Math.min(filteredAuditEvents.length, currentPage * itemsPerPage)}</span> of{' '}
+                            <span className="font-semibold text-gray-800 font-mono">{filteredAuditEvents.length}</span> transactions
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                            {/* Previous Arrow Button */}
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                disabled={currentPage === 1}
+                                aria-label="Previous Page"
+                                className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-600 hover:text-black hover:bg-zinc-100/80 disabled:opacity-25 disabled:pointer-events-none transition-all active:scale-95 cursor-pointer"
+                            >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M15 19l-7-7 7-7" />
+                                </svg>
+                            </button>
+
+                            {/* Page Numbers & Elegant 3-Circle Dots */}
+                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNumber) => {
+                                // Dynamic window: always show first, last, current, and adjacent pages
+                                if (
+                                    pageNumber === 1 ||
+                                    pageNumber === totalPages ||
+                                    (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
+                                ) {
+                                    const isCurrent = pageNumber === currentPage;
+                                    return (
+                                        <button
+                                            key={pageNumber}
+                                            onClick={() => setCurrentPage(pageNumber)}
+                                            className={`w-8 h-8 rounded-lg text-xs font-semibold font-mono transition-all flex items-center justify-center cursor-pointer ${
+                                                isCurrent
+                                                    ? 'bg-zinc-900 text-white shadow-xs font-bold'
+                                                    : 'text-zinc-600 hover:text-black hover:bg-zinc-100/80 active:scale-95'
+                                            }`}
+                                        >
+                                            {pageNumber}
+                                        </button>
+                                    );
+                                } else if (
+                                    pageNumber === currentPage - 2 ||
+                                    pageNumber === currentPage + 2
+                                ) {
+                                    return (
+                                        <div key={pageNumber} className="w-7 h-8 flex items-center justify-center gap-1 text-zinc-400 select-none">
+                                            <span className="w-1 h-1 rounded-full bg-zinc-300 dark:bg-zinc-600"></span>
+                                            <span className="w-1 h-1 rounded-full bg-zinc-300 dark:bg-zinc-600"></span>
+                                            <span className="w-1 h-1 rounded-full bg-zinc-300 dark:bg-zinc-600"></span>
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            })}
+
+                            {/* Next Arrow Button */}
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                disabled={currentPage === totalPages}
+                                aria-label="Next Page"
+                                className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-600 hover:text-black hover:bg-zinc-100/80 disabled:opacity-25 disabled:pointer-events-none transition-all active:scale-95 cursor-pointer"
+                            >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M9 5l7 7-7 7" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                )}
             </section>
 
             {/* Audit Event Modal */}
@@ -695,6 +886,12 @@ export default function EventLedgerPage() {
                 event={selectedAuditEvent}
                 onClose={() => setSelectedAuditEvent(null)}
                 onShowToast={showActionToast}
+            />
+
+            {/* Detachable Stripe Sandbox Simulator Modal */}
+            <StripeSimulatorModal
+                isOpen={isStripeSimulatorOpen}
+                onClose={() => setIsStripeSimulatorOpen(false)}
             />
         </>
     );
