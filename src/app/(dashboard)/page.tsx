@@ -11,13 +11,21 @@ import { AddPaymentModal } from "@/components/modals/AddPaymentModal";
 import { TransactionDetailsModal } from "@/components/modals/TransactionDetailsModal";
 import { getRelativeTime, formatTimeClean } from "@/utils/time";
 import { supabaseBrowser } from "@/lib/supabase-browser";
+import {
+  SkeletonBone,
+  SalesTrendSkeleton,
+  RevenueBreakdownSkeleton,
+  KpiCardSkeleton,
+} from "@/components/SkeletonShimmer";
+import { LiveStatusDot } from "@/components/LiveStatusDot";
 
 // Module-level flag so it survives client-side page transitions (Dashboard -> Comparison -> Dashboard),
 // but cleanly resets on page refresh/initial reload so user can test the entrance animation.
 let hasEverAnimatedRecentEvents = false;
 
 export default function DashboardOverviewPage() {
-  const { currentCompany, showActionToast, transactions, addTransaction } = useDashboard();
+  const { currentCompany, showActionToast, transactions, addTransaction, isPageVisited, markPageVisited } = useDashboard();
+  const alreadyVisited = isPageVisited('/');
 
   interface DashboardSummary {
     metricDate: string;
@@ -43,11 +51,14 @@ export default function DashboardOverviewPage() {
   }
 
   const [dashboardData, setDashboardData] = useState<DashboardSummary | null>(null);
-  const [isDashboardLoading, setIsDashboardLoading] = useState<boolean>(false);
+  const [isDashboardLoading, setIsDashboardLoading] = useState<boolean>(!alreadyVisited);
+
+  // Realtime Socket Connection Status: 'connected' | 'delayed' | 'disconnected'
+  const [socketStatus, setSocketStatus] = useState<'connected' | 'delayed' | 'disconnected'>('connected');
 
   useEffect(() => {
     let isMounted = true;
-    const loadDashboardData = async (showLoading = true) => {
+    const loadDashboardData = async (showLoading = !alreadyVisited) => {
       if (showLoading) setIsDashboardLoading(true);
       try {
         const res = await fetch(`/api/dashboard?company_id=${encodeURIComponent(currentCompany.id)}`);
@@ -58,16 +69,26 @@ export default function DashboardOverviewPage() {
               ...json.summary,
               history: Array.isArray(json.history) ? json.history : [],
             });
+            // If API reports delayed / estimated reconciliation, update status
+            if (json.summary.status === 'Delayed' || json.summary.status === 'Estimated') {
+              setSocketStatus('delayed');
+            } else {
+              setSocketStatus('connected');
+            }
           }
         }
       } catch (err) {
         console.warn('Dashboard live metrics fetch error:', err);
+        if (isMounted) setSocketStatus('disconnected');
       } finally {
-        if (isMounted && showLoading) setIsDashboardLoading(false);
+        if (isMounted) {
+          if (showLoading) setIsDashboardLoading(false);
+          markPageVisited('/');
+        }
       }
     };
 
-    loadDashboardData(true);
+    loadDashboardData(!alreadyVisited);
 
     // Realtime payment subscription (Dashboard_Live_Connection.md Section 5)
     const channel = supabaseBrowser
@@ -85,7 +106,14 @@ export default function DashboardOverviewPage() {
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (!isMounted) return;
+        if (status === 'SUBSCRIBED') {
+          setSocketStatus((prev) => (prev === 'delayed' ? 'delayed' : 'connected'));
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          setSocketStatus('disconnected');
+        }
+      });
 
     return () => {
       isMounted = false;
@@ -649,6 +677,7 @@ export default function DashboardOverviewPage() {
             >
               👋
             </span>
+            <LiveStatusDot status={socketStatus} isLoading={isDashboardLoading} size={9} />
           </h1>
           <p className="text-xs text-gray-400 mt-0.5">
             Portfolio performance &amp; real-time operational telemetry
@@ -759,367 +788,278 @@ export default function DashboardOverviewPage() {
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
         data-purpose="kpi-metric-cards"
       >
-        {/* Metric Card 1: Total Revenue / MRR */}
-        <div
-          className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-card flex flex-col justify-between hover:shadow-floating transition-shadow"
-          data-purpose="metric-total-revenue"
-        >
-          <div className="flex justify-between items-start">
-            <div className="space-y-1">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">
-                  Total Revenue
-                </span>
-                <span
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                    (dashboardData?.status === "Delayed" || dashboardData?.status === "Estimated")
-                      ? "bg-amber-50 text-amber-700 border border-amber-200/70"
-                      : "bg-emerald-50 text-emerald-700 border border-emerald-200/70"
-                  }`}
-                  title={
-                    (dashboardData?.status === "Delayed" || dashboardData?.status === "Estimated")
-                      ? "Backdated records pending daily reconciliation (TC-03)"
-                      : "Live synchronized telemetry"
-                  }
-                >
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full ${
-                      (dashboardData?.status === "Delayed" || dashboardData?.status === "Estimated")
-                        ? "bg-amber-500 animate-pulse"
-                        : "bg-emerald-500"
-                    }`}
-                  />
-                  <span>{dashboardData?.status || "Live"}</span>
-                </span>
+        {isDashboardLoading ? (
+          <>
+            <KpiCardSkeleton />
+            <KpiCardSkeleton />
+            <KpiCardSkeleton />
+            <KpiCardSkeleton />
+          </>
+        ) : (
+          <>
+            {/* Metric Card 1: Total Revenue / MRR */}
+            <div
+              className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-card flex flex-col justify-between hover:shadow-floating transition-shadow"
+              data-purpose="metric-total-revenue"
+            >
+              <div className="flex justify-between items-start">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">
+                      Total Revenue
+                    </span>
+                  </div>
+                  <div className="text-2xl font-bold text-gray-900 tracking-tight font-mono">
+                    {dashboardData
+                      ? `$${dashboardData.revenue.toLocaleString()}`
+                      : currentCompany.revenue}
+                  </div>
+                </div>
+                {/* Micro Sparkline Bar Chart */}
+                <div className="flex items-end gap-1 h-8 pt-1">
+                  <div className="w-1 bg-gray-200 rounded-full h-3"></div>
+                  <div className="w-1 bg-gray-300 rounded-full h-5"></div>
+                  <div className="w-1 bg-gray-300 rounded-full h-4"></div>
+                  <div className="w-1 bg-gray-400 rounded-full h-7"></div>
+                  <div className="w-1 bg-gray-900 rounded-full h-6"></div>
+                </div>
               </div>
-              <div className="text-2xl font-bold text-gray-900 tracking-tight font-mono">
-                {isDashboardLoading ? (
-                  <span className="text-gray-400 text-lg animate-pulse">Loading...</span>
-                ) : dashboardData ? (
-                  `$${dashboardData.revenue.toLocaleString()}`
-                ) : (
-                  currentCompany.revenue
-                )}
+              <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1.5 text-emerald-600 font-medium">
+                  <svg
+                    className="w-3.5 h-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2.2"
+                    ></path>
+                  </svg>
+                  <span>{currentCompany.revenueGrowth}</span>
+                </div>
+                <button className="text-gray-300 hover:text-gray-500">
+                  <svg
+                    className="w-3.5 h-3.5"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      clipRule="evenodd"
+                      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                      fillRule="evenodd"
+                    ></path>
+                  </svg>
+                </button>
               </div>
             </div>
-            {/* Micro Sparkline Bar Chart */}
-            <div className="flex items-end gap-1 h-8 pt-1">
-              <div className="w-1 bg-gray-200 rounded-full h-3"></div>
-              <div className="w-1 bg-gray-300 rounded-full h-5"></div>
-              <div className="w-1 bg-gray-300 rounded-full h-4"></div>
-              <div className="w-1 bg-gray-400 rounded-full h-7"></div>
-              <div className="w-1 bg-gray-900 rounded-full h-6"></div>
-            </div>
-          </div>
-          <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
-            <div className="flex items-center gap-1.5 text-emerald-600 font-medium">
-              <svg
-                className="w-3.5 h-3.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2.2"
-                ></path>
-              </svg>
-              <span>{currentCompany.revenueGrowth}</span>
-            </div>
-            <button className="text-gray-300 hover:text-gray-500">
-              <svg
-                className="w-3.5 h-3.5"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  clipRule="evenodd"
-                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                  fillRule="evenodd"
-                ></path>
-              </svg>
-            </button>
-          </div>
-        </div>
 
-        {/* Metric Card 2: Total Orders */}
-        <div
-          className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-card flex flex-col justify-between hover:shadow-floating transition-shadow"
-          data-purpose="metric-total-orders"
-        >
-          <div className="flex justify-between items-start">
-            <div className="space-y-1">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">
-                  Total Orders
-                </span>
-                <span
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                    (dashboardData?.status === "Delayed" || dashboardData?.status === "Estimated")
-                      ? "bg-amber-50 text-amber-700 border border-amber-200/70"
-                      : "bg-emerald-50 text-emerald-700 border border-emerald-200/70"
-                  }`}
-                  title={
-                    (dashboardData?.status === "Delayed" || dashboardData?.status === "Estimated")
-                      ? "Backdated records pending daily reconciliation (TC-03)"
-                      : "Live synchronized orders telemetry"
-                  }
-                >
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full ${
-                      (dashboardData?.status === "Delayed" || dashboardData?.status === "Estimated")
-                        ? "bg-amber-500 animate-pulse"
-                        : "bg-emerald-500"
-                    }`}
-                  />
-                  <span>{dashboardData?.status || "Live"}</span>
-                </span>
+            {/* Metric Card 2: Total Orders */}
+            <div
+              className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-card flex flex-col justify-between hover:shadow-floating transition-shadow"
+              data-purpose="metric-total-orders"
+            >
+              <div className="flex justify-between items-start">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">
+                      Total Orders
+                    </span>
+                  </div>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">
+                      {dashboardData
+                        ? dashboardData.paymentCount.toLocaleString()
+                        : currentCompany.orders}
+                    </span>
+                    <span className="text-xs text-gray-400 font-normal">
+                      Orders
+                    </span>
+                  </div>
+                </div>
+                {/* Micro Sparkline Bar Chart */}
+                <div className="flex items-end gap-1 h-8 pt-1">
+                  <div className="w-1 bg-gray-200 rounded-full h-4"></div>
+                  <div className="w-1 bg-gray-300 rounded-full h-6"></div>
+                  <div className="w-1 bg-gray-400 rounded-full h-8"></div>
+                  <div className="w-1 bg-gray-900 rounded-full h-7"></div>
+                  <div className="w-1 bg-gray-300 rounded-full h-5"></div>
+                </div>
               </div>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">
-                  {isDashboardLoading ? (
-                    <span className="text-gray-400 text-lg animate-pulse">Loading...</span>
-                  ) : dashboardData ? (
-                    dashboardData.paymentCount.toLocaleString()
-                  ) : (
-                    currentCompany.orders
-                  )}
-                </span>
-                <span className="text-xs text-gray-400 font-normal">
-                  Orders
-                </span>
+              <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1.5 text-emerald-600 font-medium">
+                  <svg
+                    className="w-3.5 h-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2.2"
+                    ></path>
+                  </svg>
+                  <span>
+                    {dashboardData?.paymentGrowth !== undefined
+                      ? `${dashboardData.paymentGrowth >= 0 ? "+" : ""}${dashboardData.paymentGrowth.toFixed(1)}% last month`
+                      : currentCompany.ordersGrowth}
+                  </span>
+                </div>
+                <button className="text-gray-300 hover:text-gray-500">
+                  <svg
+                    className="w-3.5 h-3.5"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      clipRule="evenodd"
+                      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                      fillRule="evenodd"
+                    ></path>
+                  </svg>
+                </button>
               </div>
             </div>
-            {/* Micro Sparkline Bar Chart */}
-            <div className="flex items-end gap-1 h-8 pt-1">
-              <div className="w-1 bg-gray-200 rounded-full h-4"></div>
-              <div className="w-1 bg-gray-300 rounded-full h-6"></div>
-              <div className="w-1 bg-gray-400 rounded-full h-8"></div>
-              <div className="w-1 bg-gray-900 rounded-full h-7"></div>
-              <div className="w-1 bg-gray-300 rounded-full h-5"></div>
-            </div>
-          </div>
-          <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
-            <div className="flex items-center gap-1.5 text-emerald-600 font-medium">
-              <svg
-                className="w-3.5 h-3.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2.2"
-                ></path>
-              </svg>
-              <span>
-                {dashboardData?.paymentGrowth !== undefined
-                  ? `${dashboardData.paymentGrowth >= 0 ? "+" : ""}${dashboardData.paymentGrowth.toFixed(1)}% last month`
-                  : currentCompany.ordersGrowth}
-              </span>
-            </div>
-            <button className="text-gray-300 hover:text-gray-500">
-              <svg
-                className="w-3.5 h-3.5"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  clipRule="evenodd"
-                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                  fillRule="evenodd"
-                ></path>
-              </svg>
-            </button>
-          </div>
-        </div>
 
-        {/* Metric Card 3: New Customers */}
-        <div
-          className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-card flex flex-col justify-between hover:shadow-floating transition-shadow"
-          data-purpose="metric-new-customers"
-        >
-          <div className="flex justify-between items-start">
-            <div className="space-y-1">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">
-                  New Customers
-                </span>
-                <span
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                    (dashboardData?.status === "Delayed" || dashboardData?.status === "Estimated")
-                      ? "bg-amber-50 text-amber-700 border border-amber-200/70"
-                      : "bg-emerald-50 text-emerald-700 border border-emerald-200/70"
-                  }`}
-                  title={
-                    (dashboardData?.status === "Delayed" || dashboardData?.status === "Estimated")
-                      ? "Backdated records pending daily reconciliation (TC-03)"
-                      : "Live synchronized customers telemetry"
-                  }
-                >
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full ${
-                      (dashboardData?.status === "Delayed" || dashboardData?.status === "Estimated")
-                        ? "bg-amber-500 animate-pulse"
-                        : "bg-emerald-500"
-                    }`}
-                  />
-                  <span>{dashboardData?.status || "Live"}</span>
-                </span>
+            {/* Metric Card 3: New Customers */}
+            <div
+              className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-card flex flex-col justify-between hover:shadow-floating transition-shadow"
+              data-purpose="metric-new-customers"
+            >
+              <div className="flex justify-between items-start">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">
+                      New Customers
+                    </span>
+                  </div>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">
+                      {dashboardData
+                        ? dashboardData.customerCount.toLocaleString()
+                        : currentCompany.customers}
+                    </span>
+                    <span className="text-xs text-gray-400 font-normal">
+                      New Users
+                    </span>
+                  </div>
+                </div>
+                {/* Micro Sparkline Bar Chart */}
+                <div className="flex items-end gap-1 h-8 pt-1">
+                  <div className="w-1 bg-gray-200 rounded-full h-3"></div>
+                  <div className="w-1 bg-gray-400 rounded-full h-7"></div>
+                  <div className="w-1 bg-gray-900 rounded-full h-8"></div>
+                  <div className="w-1 bg-gray-300 rounded-full h-5"></div>
+                  <div className="w-1 bg-gray-200 rounded-full h-4"></div>
+                </div>
               </div>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">
-                  {isDashboardLoading ? (
-                    <span className="text-gray-400 text-lg animate-pulse">Loading...</span>
-                  ) : dashboardData ? (
-                    dashboardData.customerCount.toLocaleString()
-                  ) : (
-                    currentCompany.customers
-                  )}
-                </span>
-                <span className="text-xs text-gray-400 font-normal">
-                  New Users
-                </span>
+              <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1.5 text-emerald-600 font-medium">
+                  <svg
+                    className="w-3.5 h-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2.2"
+                    ></path>
+                  </svg>
+                  <span>
+                    {dashboardData?.customerGrowth !== undefined
+                      ? `${dashboardData.customerGrowth >= 0 ? "+" : ""}${dashboardData.customerGrowth.toFixed(1)}% last month`
+                      : currentCompany.customersGrowth}
+                  </span>
+                </div>
+                <button className="text-gray-300 hover:text-gray-500">
+                  <svg
+                    className="w-3.5 h-3.5"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      clipRule="evenodd"
+                      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                      fillRule="evenodd"
+                    ></path>
+                  </svg>
+                </button>
               </div>
             </div>
-            {/* Micro Sparkline Bar Chart */}
-            <div className="flex items-end gap-1 h-8 pt-1">
-              <div className="w-1 bg-gray-200 rounded-full h-3"></div>
-              <div className="w-1 bg-gray-400 rounded-full h-7"></div>
-              <div className="w-1 bg-gray-900 rounded-full h-8"></div>
-              <div className="w-1 bg-gray-300 rounded-full h-5"></div>
-              <div className="w-1 bg-gray-200 rounded-full h-4"></div>
-            </div>
-          </div>
-          <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
-            <div className="flex items-center gap-1.5 text-emerald-600 font-medium">
-              <svg
-                className="w-3.5 h-3.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2.2"
-                ></path>
-              </svg>
-              <span>
-                {dashboardData?.customerGrowth !== undefined
-                  ? `${dashboardData.customerGrowth >= 0 ? "+" : ""}${dashboardData.customerGrowth.toFixed(1)}% last month`
-                  : currentCompany.customersGrowth}
-              </span>
-            </div>
-            <button className="text-gray-300 hover:text-gray-500">
-              <svg
-                className="w-3.5 h-3.5"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  clipRule="evenodd"
-                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                  fillRule="evenodd"
-                ></path>
-              </svg>
-            </button>
-          </div>
-        </div>
 
-        {/* Metric Card 4: Conversion Rate */}
-        <div
-          className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-card flex flex-col justify-between hover:shadow-floating transition-shadow"
-          data-purpose="metric-conversion-rate"
-        >
-          <div className="flex justify-between items-start">
-            <div className="space-y-1">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">
-                  Conversion Rate
-                </span>
-                <span
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                    (dashboardData?.status === "Delayed" || dashboardData?.status === "Estimated")
-                      ? "bg-amber-50 text-amber-700 border border-amber-200/70"
-                      : "bg-emerald-50 text-emerald-700 border border-emerald-200/70"
-                  }`}
-                  title={
-                    (dashboardData?.status === "Delayed" || dashboardData?.status === "Estimated")
-                      ? "Backdated records pending daily reconciliation (TC-03)"
-                      : "Live synchronized conversion telemetry"
-                  }
-                >
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full ${
-                      (dashboardData?.status === "Delayed" || dashboardData?.status === "Estimated")
-                        ? "bg-amber-500 animate-pulse"
-                        : "bg-emerald-500"
-                    }`}
-                  />
-                  <span>{dashboardData?.status || "Live"}</span>
-                </span>
+            {/* Metric Card 4: Conversion Rate */}
+            <div
+              className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-card flex flex-col justify-between hover:shadow-floating transition-shadow"
+              data-purpose="metric-conversion-rate"
+            >
+              <div className="flex justify-between items-start">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">
+                      Conversion Rate
+                    </span>
+                  </div>
+                  <div className="text-2xl font-bold text-gray-900 tracking-tight font-mono">
+                    {dashboardData?.conversionRate
+                      ? dashboardData.conversionRate
+                      : currentCompany.conversionRate}
+                  </div>
+                </div>
+                {/* Micro Sparkline Bar Chart */}
+                <div className="flex items-end gap-1 h-8 pt-1">
+                  <div className="w-1 bg-gray-200 rounded-full h-3"></div>
+                  <div className="w-1 bg-gray-300 rounded-full h-4"></div>
+                  <div className="w-1 bg-gray-400 rounded-full h-6"></div>
+                  <div className="w-1 bg-gray-900 rounded-full h-8"></div>
+                  <div className="w-1 bg-gray-300 rounded-full h-5"></div>
+                </div>
               </div>
-              <div className="text-2xl font-bold text-gray-900 tracking-tight font-mono">
-                {isDashboardLoading ? (
-                  <span className="text-gray-400 text-lg animate-pulse">Loading...</span>
-                ) : dashboardData?.conversionRate ? (
-                  dashboardData.conversionRate
-                ) : (
-                  currentCompany.conversionRate
-                )}
+              <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1.5 text-emerald-600 font-medium">
+                  <svg
+                    className="w-3.5 h-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2.2"
+                    ></path>
+                  </svg>
+                  <span>
+                    {dashboardData?.conversionGrowth !== undefined
+                      ? `${dashboardData.conversionGrowth >= 0 ? "+" : ""}${dashboardData.conversionGrowth.toFixed(1)}% last month`
+                      : currentCompany.conversionGrowth}
+                  </span>
+                </div>
+                <button className="text-gray-300 hover:text-gray-500">
+                  <svg
+                    className="w-3.5 h-3.5"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      clipRule="evenodd"
+                      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                      fillRule="evenodd"
+                    ></path>
+                  </svg>
+                </button>
               </div>
             </div>
-            {/* Micro Sparkline Bar Chart */}
-            <div className="flex items-end gap-1 h-8 pt-1">
-              <div className="w-1 bg-gray-200 rounded-full h-3"></div>
-              <div className="w-1 bg-gray-300 rounded-full h-4"></div>
-              <div className="w-1 bg-gray-400 rounded-full h-6"></div>
-              <div className="w-1 bg-gray-900 rounded-full h-8"></div>
-              <div className="w-1 bg-gray-300 rounded-full h-5"></div>
-            </div>
-          </div>
-          <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
-            <div className="flex items-center gap-1.5 text-emerald-600 font-medium">
-              <svg
-                className="w-3.5 h-3.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2.2"
-                ></path>
-              </svg>
-              <span>
-                {dashboardData?.conversionGrowth !== undefined
-                  ? `${dashboardData.conversionGrowth >= 0 ? "+" : ""}${dashboardData.conversionGrowth.toFixed(1)}% last month`
-                  : currentCompany.conversionGrowth}
-              </span>
-            </div>
-            <button className="text-gray-300 hover:text-gray-500">
-              <svg
-                className="w-3.5 h-3.5"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  clipRule="evenodd"
-                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                  fillRule="evenodd"
-                ></path>
-              </svg>
-            </button>
-          </div>
-        </div>
+          </>
+        )}
       </section>
       {/* END: MetricCardsGrid */}
 
@@ -1170,7 +1110,7 @@ export default function DashboardOverviewPage() {
                   Total Revenue :{" "}
                   <span className="text-xl font-bold text-gray-900 ml-1.5 font-mono">
                     {isDashboardLoading ? (
-                      "Loading..."
+                      <SkeletonBone width={110} height={24} borderRadius={4} className="inline-block align-middle" />
                     ) : (
                       salesTrendResult.totalRevenue
                     )}
@@ -1209,11 +1149,15 @@ export default function DashboardOverviewPage() {
             </div>
           </div>
 
-          {/* Matrix Pixel Bar Chart Container */}
-          <div
-            onMouseLeave={() => setHoveredCol(null)}
-            className="relative mt-6 pt-4 pb-2 border-t border-dashed border-gray-100 select-none"
-          >
+          {/* Matrix Pixel Bar Chart Container / Shimmer Skeleton */}
+          {isDashboardLoading ? (
+            <SalesTrendSkeleton />
+          ) : (
+            <div
+              onMouseLeave={() => setHoveredCol(null)}
+              className="relative mt-6 pt-4 pb-2 border-t border-dashed border-gray-100 select-none"
+            >
+
             {/* Background Scale ticks & Horizontal Dashed Lines */}
             <div className="absolute inset-x-0 top-4 bottom-8 flex flex-col justify-between pointer-events-none text-[10px] text-gray-300 font-mono">
               {salesTrendResult.ticks.map((t, idx) => (
@@ -1368,7 +1312,9 @@ export default function DashboardOverviewPage() {
               })}
             </div>
           </div>
+          )}
         </div>
+
 
         {/* Right 4 Columns: Revenue Breakdown & AI Insight Card */}
         <div
@@ -1406,222 +1352,250 @@ export default function DashboardOverviewPage() {
                 </svg>
               </button>
             </div>
-            <div className="mt-3 flex items-center justify-between">
-              <div>
-                <span className="text-xs text-gray-400 block">
-                  Revenue by Category
-                </span>
-                <span className="text-xl font-bold text-gray-900 font-mono">
-                  ${revenueBreakdownResult.totalCategoryRevenue.toLocaleString()}
-                </span>
+            {/* Revenue Title, Amount, Date dropdown, and AI banner */}
+            {isDashboardLoading ? (
+              <div className="space-y-3 mt-3 select-none">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <SkeletonBone width={110} height={12} borderRadius={4} />
+                    <SkeletonBone width={90} height={24} borderRadius={6} />
+                  </div>
+                  <SkeletonBone width={95} height={26} borderRadius={10} />
+                </div>
+                {/* AI Insight Shimmer Banner */}
+                <div className="bg-[#f8f9fa] border border-gray-200/90 rounded-xl p-2.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <SkeletonBone width={16} height={16} borderRadius={99} />
+                    <SkeletonBone width={180} height={12} borderRadius={4} />
+                  </div>
+                  <SkeletonBone width={75} height={18} borderRadius={99} />
+                </div>
               </div>
-              {/* Sub-date dropdown */}
-              <div className="relative">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsPeriodDropdownOpen(!isPeriodDropdownOpen);
-                  }}
-                  className="flex items-center gap-1 text-xs text-gray-500 bg-gray-50 hover:bg-gray-100 border border-gray-200 px-2.5 py-1 rounded-xl transition-colors cursor-pointer"
-                >
-                  <svg
-                    className="w-3.5 h-3.5 text-gray-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                    ></path>
-                  </svg>
-                  <span>{selectedCategoryPeriod}</span>
-                  <svg
-                    className={`w-3 h-3 text-gray-400 ml-0.5 transition-transform ${isPeriodDropdownOpen ? "rotate-180" : ""}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      d="M19 9l-7 7-7-7"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                    ></path>
-                  </svg>
-                </button>
-                {isPeriodDropdownOpen && (
-                  <div
-                    onClick={(e) => e.stopPropagation()}
-                    className="absolute top-full right-0 mt-1 z-30 bg-white border border-gray-200 rounded-xl shadow-floating p-1 min-w-[140px] animate-in fade-in zoom-in-95"
-                  >
-                    {[
-                      "Last 30 Days",
-                      "This Month (MTD)",
-                      "Last Month",
-                      "This Quarter (Q3)",
-                      "Year to Date (YTD)",
-                    ].map((p) => (
-                      <button
-                        key={p}
-                        onClick={() => {
-                          setSelectedCategoryPeriod(p);
-                          setIsPeriodDropdownOpen(false);
-                          showActionToast(`Revenue breakdown filtered to ${p}`);
-                        }}
-                        className={`w-full text-left px-2.5 py-1 text-xs rounded-lg transition-colors cursor-pointer ${
-                          selectedCategoryPeriod === p
-                            ? "bg-gray-100 font-semibold text-black"
-                            : "text-gray-600 hover:bg-gray-50"
-                        }`}
+            ) : (
+              <>
+                <div className="mt-3 flex items-center justify-between">
+                  <div>
+                    <span className="text-xs text-gray-400 block">
+                      Revenue by Category
+                    </span>
+                    <span className="text-xl font-bold text-gray-900 font-mono">
+                      ${revenueBreakdownResult.totalCategoryRevenue.toLocaleString()}
+                    </span>
+                  </div>
+                  {/* Sub-date dropdown */}
+                  <div className="relative">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsPeriodDropdownOpen(!isPeriodDropdownOpen);
+                      }}
+                      className="flex items-center gap-1 text-xs text-gray-500 bg-gray-50 hover:bg-gray-100 border border-gray-200 px-2.5 py-1 rounded-xl transition-colors cursor-pointer"
+                    >
+                      <svg
+                        className="w-3.5 h-3.5 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
                       >
-                        {p}
-                      </button>
-                    ))}
+                        <path
+                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                        ></path>
+                      </svg>
+                      <span>{selectedCategoryPeriod}</span>
+                      <svg
+                        className={`w-3 h-3 text-gray-400 ml-0.5 transition-transform ${isPeriodDropdownOpen ? "rotate-180" : ""}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          d="M19 9l-7 7-7-7"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                        ></path>
+                      </svg>
+                    </button>
+                    {isPeriodDropdownOpen && (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute top-full right-0 mt-1 z-30 bg-white border border-gray-200 rounded-xl shadow-floating p-1 min-w-[140px] animate-in fade-in zoom-in-95"
+                      >
+                        {[
+                          "Last 30 Days",
+                          "This Month (MTD)",
+                          "Last Month",
+                          "This Quarter (Q3)",
+                          "Year to Date (YTD)",
+                        ].map((p) => (
+                          <button
+                            key={p}
+                            onClick={() => {
+                              setSelectedCategoryPeriod(p);
+                              setIsPeriodDropdownOpen(false);
+                              showActionToast(`Revenue breakdown filtered to ${p}`);
+                            }}
+                            className={`w-full text-left px-2.5 py-1 text-xs rounded-lg transition-colors cursor-pointer ${
+                              selectedCategoryPeriod === p
+                                ? "bg-gray-100 font-semibold text-black"
+                                : "text-gray-600 hover:bg-gray-50"
+                            }`}
+                          >
+                            {p}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* AI Insight Clickable Banner */}
+                <div
+                  onClick={() => setIsAiModalOpen(true)}
+                  className="mt-3 bg-[#f8f9fa] hover:bg-gray-100 border border-gray-200/90 rounded-xl p-2.5 flex items-center justify-between cursor-pointer transition-all shadow-xs"
+                >
+                  <div className="flex items-center gap-2 text-xs font-medium text-gray-800">
+                    <span className="text-amber-500 text-sm">✨</span>
+                    <span>Get AI insight for better analysis</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        currentCompany.aiTier === "Outperforming"
+                          ? "bg-emerald-100 text-emerald-800"
+                          : currentCompany.aiTier === "Moderate"
+                            ? "bg-blue-100 text-blue-800"
+                            : "bg-rose-100 text-rose-800"
+                      }`}
+                    >
+                      {currentCompany.aiTier}
+                    </span>
+                    <svg
+                      className="w-3.5 h-3.5 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        d="M9 5l7 7-7 7"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                      ></path>
+                    </svg>
+                  </div>
+                </div>
+
+                {/* High Churn Alert Warning Banner */}
+                {currentCompany.highChurnWarning && (
+                  <div className="mt-2.5 p-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-[11px] flex items-center gap-2">
+                    <span className="text-sm flex-shrink-0">⚠️</span>
+                    <span className="font-semibold">
+                      High Churn Alert: {currentCompany.churnRate} exceeds safe
+                      threshold (&lt;10%).
+                    </span>
                   </div>
                 )}
-              </div>
-            </div>
-
-            {/* AI Insight Clickable Banner */}
-            <div
-              onClick={() => setIsAiModalOpen(true)}
-              className="mt-3 bg-[#f8f9fa] hover:bg-gray-100 border border-gray-200/90 rounded-xl p-2.5 flex items-center justify-between cursor-pointer transition-all shadow-xs"
-            >
-              <div className="flex items-center gap-2 text-xs font-medium text-gray-800">
-                <span className="text-amber-500 text-sm">✨</span>
-                <span>Get AI insight for better analysis</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                    currentCompany.aiTier === "Outperforming"
-                      ? "bg-emerald-100 text-emerald-800"
-                      : currentCompany.aiTier === "Moderate"
-                        ? "bg-blue-100 text-blue-800"
-                        : "bg-rose-100 text-rose-800"
-                  }`}
-                >
-                  {currentCompany.aiTier}
-                </span>
-                <svg
-                  className="w-3.5 h-3.5 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    d="M9 5l7 7-7 7"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                  ></path>
-                </svg>
-              </div>
-            </div>
-
-            {/* High Churn Alert Warning Banner */}
-            {currentCompany.highChurnWarning && (
-              <div className="mt-2.5 p-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-[11px] flex items-center gap-2">
-                <span className="text-sm flex-shrink-0">⚠️</span>
-                <span className="font-semibold">
-                  High Churn Alert: {currentCompany.churnRate} exceeds safe
-                  threshold (&lt;10%).
-                </span>
-              </div>
+              </>
             )}
           </div>
 
-          {/* Vertical High-Density Bar Graph Canvas matching Image 2 */}
-          <div className="flex-1 flex flex-col justify-between mt-5 relative select-none">
-            {/* Background 5 Horizontal Dashed Guidelines with Left Bullets matching Image 2 */}
-            <div className="absolute inset-x-0 top-3 bottom-8 flex flex-col justify-between pointer-events-none">
-              {[0, 1, 2, 3, 4].map((i) => (
-                <div key={`guideline-${i}`} className="flex items-center w-full">
-                  <span className="w-1.5 h-1.5 rounded-full bg-gray-300 mr-2 flex-shrink-0 opacity-70" />
-                  <div className="flex-1 border-b border-gray-200/70 border-dashed" />
-                </div>
-              ))}
-            </div>
-
-            {/* 11 Needle Bars Canvas */}
-            <div
-              onMouseLeave={() => setHoveredRevenueBar(null)}
-              className="relative flex items-end justify-between flex-1 min-h-[260px] px-2 z-10"
-            >
-              {revenueBreakdownResult.bars.map((bar, idx) => {
-                const isHovered = hoveredRevenueBar === bar.id;
-                return (
-                  <div
-                    key={bar.id}
-                    onMouseEnter={() => setHoveredRevenueBar(bar.id)}
-                    onMouseLeave={() => setHoveredRevenueBar(null)}
-                    className="relative flex flex-col items-center gap-1 w-3 py-1 cursor-pointer group select-none"
-                  >
-                    {/* Hover Floating Tooltip */}
-                    {isHovered && (
-                      <div
-                        className={`absolute bottom-full mb-2 ${
-                          idx > 6 ? "-left-28" : "-right-24"
-                        } z-30 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl px-2.5 py-1.5 shadow-floating text-left min-w-[124px] pointer-events-none transition-all animate-in fade-in zoom-in-95`}
-                      >
-                        <div className="text-[11px] font-bold text-gray-800">
-                          {bar.date}
-                        </div>
-                        <div className="mt-1 space-y-0.5 text-[10px]">
-                          <div className="flex items-center justify-between gap-2 text-gray-500">
-                            <span className="inline-flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>{" "}
-                              Expansion
-                            </span>
-                            <span className="font-semibold text-gray-900 font-mono">
-                              {bar.expansion}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between gap-2 text-gray-500">
-                            <span className="inline-flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-black"></span>{" "}
-                              Base MRR
-                            </span>
-                            <span className="font-semibold text-gray-900 font-mono">
-                              {bar.base}
-                            </span>
-                          </div>
-                          <div className="pt-1 mt-1 border-t border-gray-100 flex items-center justify-between font-bold text-gray-900 font-mono">
-                            <span>Total:</span>
-                            <span>{bar.total}</span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    <div
-                      style={{ height: `${bar.topPx}px` }}
-                      className={`w-1.5 bg-[#cbd5e1] rounded-t-sm transition-colors duration-200 ${
-                        isHovered ? "bg-gray-400" : "group-hover:bg-gray-300"
-                      }`}
-                    ></div>
-                    <div
-                      style={{ height: `${bar.botPx}px` }}
-                      className={`w-1.5 bg-black rounded-b-sm transition-colors duration-200 ${
-                        isHovered ? "bg-zinc-800" : ""
-                      }`}
-                    ></div>
+          {/* Vertical High-Density Bar Graph Canvas / Shimmer Skeleton */}
+          {isDashboardLoading ? (
+            <RevenueBreakdownSkeleton />
+          ) : (
+            <div className="flex-1 flex flex-col justify-between mt-5 relative select-none">
+              {/* Background 5 Horizontal Dashed Guidelines with Left Bullets matching Image 2 */}
+              <div className="absolute inset-x-0 top-3 bottom-8 flex flex-col justify-between pointer-events-none">
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <div key={`guideline-${i}`} className="flex items-center w-full">
+                    <span className="w-1.5 h-1.5 rounded-full bg-gray-300 mr-2 flex-shrink-0 opacity-70" />
+                    <div className="flex-1 border-b border-gray-200/70 border-dashed" />
                   </div>
-                );
-              })}
-            </div>
+                ))}
+              </div>
 
-            {/* Bottom Dotted Axis Range (matching Image 2: 1 JAN ········ 30 JAN 2025) */}
-            <div className="mt-3 pt-1 flex items-center justify-between text-[10px] text-gray-400 font-mono">
-              <span className="flex-shrink-0">{revenueBreakdownResult.dateRange.start}</span>
-              <div className="flex-1 mx-3 border-b border-gray-200 border-dotted" />
-              <span className="flex-shrink-0">{revenueBreakdownResult.dateRange.end}</span>
+              {/* 11 Needle Bars Canvas */}
+              <div
+                onMouseLeave={() => setHoveredRevenueBar(null)}
+                className="relative flex items-end justify-between flex-1 min-h-[260px] px-2 z-10"
+              >
+                {revenueBreakdownResult.bars.map((bar, idx) => {
+                  const isHovered = hoveredRevenueBar === bar.id;
+                  return (
+                    <div
+                      key={bar.id}
+                      onMouseEnter={() => setHoveredRevenueBar(bar.id)}
+                      onMouseLeave={() => setHoveredRevenueBar(null)}
+                      className="relative flex flex-col items-center gap-1 w-3 py-1 cursor-pointer group select-none"
+                    >
+                      {/* Hover Floating Tooltip */}
+                      {isHovered && (
+                        <div
+                          className={`absolute bottom-full mb-2 ${
+                            idx > 6 ? "-left-28" : "-right-24"
+                          } z-30 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl px-2.5 py-1.5 shadow-floating text-left min-w-[124px] pointer-events-none transition-all animate-in fade-in zoom-in-95`}
+                        >
+                          <div className="text-[11px] font-bold text-gray-800">
+                            {bar.date}
+                          </div>
+                          <div className="mt-1 space-y-0.5 text-[10px]">
+                            <div className="flex items-center justify-between gap-2 text-gray-500">
+                              <span className="inline-flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>{" "}
+                                Expansion
+                              </span>
+                              <span className="font-semibold text-gray-900 font-mono">
+                                {bar.expansion}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between gap-2 text-gray-500">
+                              <span className="inline-flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-black"></span>{" "}
+                                Base MRR
+                              </span>
+                              <span className="font-semibold text-gray-900 font-mono">
+                                {bar.base}
+                              </span>
+                            </div>
+                            <div className="pt-1 mt-1 border-t border-gray-100 flex items-center justify-between font-bold text-gray-900 font-mono">
+                              <span>Total:</span>
+                              <span>{bar.total}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <div
+                        style={{ height: `${bar.topPx}px` }}
+                        className={`w-1.5 bg-[#cbd5e1] rounded-t-sm transition-colors duration-200 ${
+                          isHovered ? "bg-gray-400" : "group-hover:bg-gray-300"
+                        }`}
+                      ></div>
+                      <div
+                        style={{ height: `${bar.botPx}px` }}
+                        className={`w-1.5 bg-black rounded-b-sm transition-colors duration-200 ${
+                          isHovered ? "bg-zinc-800" : ""
+                        }`}
+                      ></div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Bottom Dotted Axis Range (matching Image 2: 1 JAN ········ 30 JAN 2025) */}
+              <div className="mt-3 pt-1 flex items-center justify-between text-[10px] text-gray-400 font-mono">
+                <span className="flex-shrink-0">{revenueBreakdownResult.dateRange.start}</span>
+                <div className="flex-1 mx-3 border-b border-gray-200 border-dotted" />
+                <span className="flex-shrink-0">{revenueBreakdownResult.dateRange.end}</span>
+              </div>
             </div>
-          </div>
+          )}
         </div>
+
       </section>
       {/* END: PrimaryChartsSection */}
 
@@ -1792,7 +1766,43 @@ export default function DashboardOverviewPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
-                {filteredTransactions.map((tx, index) => {
+                {isDashboardLoading ? (
+                  Array.from({ length: 4 }).map((_, rIdx) => (
+                    <tr key={`skel-row-${rIdx}`} className="hover:bg-gray-50/40">
+                      <td className="py-3.5 px-2 text-center">
+                        <SkeletonBone width={14} height={14} borderRadius={3} className="mx-auto" />
+                      </td>
+                      <td className="py-3.5 px-2.5">
+                        <div className="space-y-1">
+                          <SkeletonBone width={75} height={12} borderRadius={3} />
+                          <SkeletonBone width={45} height={9} borderRadius={2} />
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-2.5">
+                        <SkeletonBone width={90} height={13} borderRadius={3} />
+                      </td>
+                      <td className="py-3.5 px-2.5">
+                        <div className="space-y-1">
+                          <SkeletonBone width={100} height={12} borderRadius={3} />
+                          <SkeletonBone width={55} height={9} borderRadius={2} />
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-2.5">
+                        <SkeletonBone width={110} height={12} borderRadius={3} />
+                      </td>
+                      <td className="py-3.5 px-2.5">
+                        <SkeletonBone width={65} height={18} borderRadius={99} />
+                      </td>
+                      <td className="py-3.5 px-2.5">
+                        <SkeletonBone width={60} height={13} borderRadius={3} />
+                      </td>
+                      <td className="py-3 pr-4 pl-2 text-center">
+                        <SkeletonBone width={26} height={26} borderRadius={6} className="mx-auto" />
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  filteredTransactions.map((tx, index) => {
                 const rowClass = !shouldAnimateRows
                   ? "event-row-hidden"
                   : hasAlreadyAnimated
@@ -1804,6 +1814,7 @@ export default function DashboardOverviewPage() {
                     key={tx.id}
                     className={`hover:bg-gray-50/70 transition-colors ${rowClass}`}
                   >
+
                     <td className="py-3.5 px-2 text-center">
                       <input
                         checked={selectedRows.includes(tx.id)}
@@ -1960,9 +1971,12 @@ export default function DashboardOverviewPage() {
                     </td>
                   </tr>
                 );
-              })}
+              })
+            )}
+
             </tbody>
-          </table>
+            </table>
+
         </div>
 
         {/* Impeccable Bottom Vanishing / Blurring Fade Overlay */}

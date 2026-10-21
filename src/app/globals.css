@@ -249,4 +249,39 @@ h1, h2, h3, h4, h5, h6 {
   .animate-wave {
     animation: none !important;
   }
-}
+}
+
+/* ==========================================================================
+   Light-Mode Skeleton Shimmer Tokens & Animations
+   Engineered for clean white / light gray backgrounds (Metrica Zinc-50 / White)
+   ========================================================================== */
+@keyframes metricaShimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.metrica-skeleton-bone {
+  background: linear-gradient(
+    90deg,
+    #f0f2f5 0%,
+    #e8ebf0 25%,
+    #ffffff 50%,
+    #e8ebf0 75%,
+    #f0f2f5 100%
+  );
+  background-size: 200% 100%;
+  animation: metricaShimmer 1.8s ease-in-out infinite;
+  display: block;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .metrica-skeleton-bone {
+    animation: none !important;
+    background: #f0f2f5 !important;
+  }
+}
+

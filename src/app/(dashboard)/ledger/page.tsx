@@ -7,17 +7,20 @@ import { AuditEventModal } from '@/components/modals/AuditEventModal';
 import { StripeSimulatorModal } from '@/components/dev/StripeSimulatorModal';
 import { supabaseBrowser } from '@/lib/supabase-browser';
 import { formatTimeClean, getRelativeTime } from '@/utils/time';
+import { SkeletonBone, KpiCardSkeleton } from '@/components/SkeletonShimmer';
+import { LiveStatusDot } from '@/components/LiveStatusDot';
 
 // Module-level flag so it survives client-side page transitions (Ledger -> Dashboard -> Ledger),
 // but cleanly resets on page refresh/initial reload so user can test the entrance animation.
 let hasEverAnimatedLedger = false;
 
 export default function EventLedgerPage() {
-    const { globalSearchQuery, showActionToast } = useDashboard();
+    const { globalSearchQuery, showActionToast, isPageVisited, markPageVisited } = useDashboard();
+    const alreadyVisited = isPageVisited('/ledger');
 
     // --- Ledger data state ---
     const [auditEvents, setAuditEvents] = useState<AuditLedgerEvent[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(!alreadyVisited);
 
     // One-time staggered row animation state across navigation
     const [shouldAnimateRows, setShouldAnimateRows] = useState<boolean>(() => hasEverAnimatedLedger);
@@ -99,14 +102,17 @@ export default function EventLedgerPage() {
                     setAuditEvents([]);
                 }
             } finally {
-                if (showLoading && isMounted) {
-                    setIsLoading(false);
+                if (isMounted) {
+                    if (showLoading) {
+                        setIsLoading(false);
+                    }
+                    markPageVisited('/ledger');
                 }
             }
         };
 
         // Initial ledger load
-        loadLedgerEvents(true);
+        loadLedgerEvents(!alreadyVisited);
 
         // Smart polling ticker (every 3 seconds) as bulletproof fallback if WebSocket replication is delayed/disabled
         const pollInterval = window.setInterval(() => {
@@ -325,7 +331,10 @@ export default function EventLedgerPage() {
             {/* BEGIN: Header & Controls */}
             <section className="flex flex-wrap items-center justify-between gap-4" data-purpose="header-greeting-controls">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Event Ledger</h1>
+                    <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center">
+                        <span>Event Ledger</span>
+                        <LiveStatusDot isLoading={isLoading} size={9} />
+                    </h1>
                     <p className="text-xs text-gray-400 mt-0.5">Immutable financial telemetry &amp; real-time webhook audit trail</p>
                 </div>
 
@@ -382,18 +391,27 @@ export default function EventLedgerPage() {
 
             {/* Section 1: 4 Top Telemetry KPI Cards */}
             <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" data-purpose="ledger-kpi-cards">
-                {/* Card 1: Total Events Processed */}
-                <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-card flex flex-col justify-between hover:shadow-floating transition-shadow">
-                    <div className="flex justify-between items-start">
-                        <div className="space-y-1">
-                            <div className="flex items-center gap-1.5">
-                                <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">Total Events</span>
-                            </div>
-                            <div className="flex items-baseline gap-1.5">
-                                <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">{totalEvents}</span>
-                                <span className="text-xs text-gray-400 font-normal">Today</span>
-                            </div>
-                        </div>
+                {isLoading ? (
+                    <>
+                        <KpiCardSkeleton />
+                        <KpiCardSkeleton />
+                        <KpiCardSkeleton />
+                        <KpiCardSkeleton />
+                    </>
+                ) : (
+                    <>
+                        {/* Card 1: Total Events Processed */}
+                        <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-card flex flex-col justify-between hover:shadow-floating transition-shadow">
+                            <div className="flex justify-between items-start">
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">Total Events</span>
+                                    </div>
+                                    <div className="flex items-baseline gap-1.5">
+                                        <span className="text-2xl font-bold text-gray-900 tracking-tight font-mono">{totalEvents}</span>
+                                        <span className="text-xs text-gray-400 font-normal">Today</span>
+                                    </div>
+                                </div>
                         <div className="flex items-end gap-1 h-8 pt-1">
                             <div className="w-1 bg-gray-200 rounded-full h-3"></div>
                             <div className="w-1 bg-gray-300 rounded-full h-5"></div>
@@ -507,6 +525,8 @@ export default function EventLedgerPage() {
                         </button>
                     </div>
                 </div>
+                    </>
+                )}
             </section>
 
             {/* Section 2: Immutable Telemetry Table */}
@@ -536,12 +556,49 @@ export default function EventLedgerPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
-                            {paginatedAuditEvents.map((evt, index) => {
+                            {isLoading ? (
+                                Array.from({ length: 6 }).map((_, rIdx) => (
+                                    <tr key={`ledger-skel-${rIdx}`} className="hover:bg-gray-50/40">
+                                        <td className="py-3.5 px-3">
+                                            <div className="space-y-1">
+                                                <SkeletonBone width={70} height={13} borderRadius={3} />
+                                                <SkeletonBone width={45} height={10} borderRadius={2} />
+                                            </div>
+                                        </td>
+                                        <td className="py-3.5 px-3">
+                                            <div className="space-y-1">
+                                                <SkeletonBone width={110} height={13} borderRadius={3} />
+                                                <SkeletonBone width={80} height={10} borderRadius={2} />
+                                            </div>
+                                        </td>
+                                        <td className="py-3.5 px-3">
+                                            <div className="space-y-1">
+                                                <SkeletonBone width={120} height={13} borderRadius={3} />
+                                                <SkeletonBone width={65} height={10} borderRadius={2} />
+                                            </div>
+                                        </td>
+                                        <td className="py-3.5 px-3">
+                                            <SkeletonBone width={60} height={14} borderRadius={3} />
+                                        </td>
+                                        <td className="py-3.5 px-3">
+                                            <SkeletonBone width={85} height={13} borderRadius={3} />
+                                        </td>
+                                        <td className="py-3.5 px-3">
+                                            <SkeletonBone width={90} height={20} borderRadius={99} />
+                                        </td>
+                                        <td className="py-3.5 px-3 text-center w-20">
+                                            <SkeletonBone width={28} height={28} borderRadius={8} className="mx-auto" />
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                paginatedAuditEvents.map((evt, index) => {
                                 const rowClass = !shouldAnimateRows
                                     ? "event-row-hidden"
                                     : hasAlreadyAnimated
                                         ? "event-row-static event-row-interactive"
                                         : "event-row-animated event-row-interactive";
+
 
                                 const isSuccess = evt.status === 'Delivered 200 OK' || evt.status.toLowerCase().includes('ok') || evt.status.toLowerCase().includes('success');
                                 const isPending = evt.status === 'Pending Retry' || evt.status.toLowerCase().includes('pending');
@@ -722,34 +779,29 @@ export default function EventLedgerPage() {
                                     </td>
                                 </tr>
                             );
-                        })}
+                        })
+                    )}
 
-                            {filteredAuditEvents.length === 0 && (
+                            {!isLoading && filteredAuditEvents.length === 0 && (
                                 <tr>
                                     <td colSpan={7} className="py-16 text-center">
-                                        {isLoading ? (
-                                            <div className="flex flex-col items-center justify-center gap-2 text-gray-400">
-                                                <div className="w-5 h-5 border-2 border-zinc-300 border-t-zinc-900 rounded-full animate-spin"></div>
-                                                <span className="text-xs">Connecting to live Supabase ledger…</span>
+                                        <div className="max-w-sm mx-auto text-center space-y-3">
+                                            <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center mx-auto text-gray-400">
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                                </svg>
                                             </div>
-                                        ) : (
-                                            <div className="max-w-sm mx-auto text-center space-y-3">
-                                                <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-zinc-800 flex items-center justify-center mx-auto text-gray-400">
-                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                                    </svg>
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <div className="text-xs font-semibold text-gray-900 dark:text-gray-100">No Webhook Events Recorded Yet</div>
-                                                    <p className="text-[11px] text-gray-500">
-                                                        Mock data has been removed. Trigger a test event via Stripe CLI or click the <strong className="text-indigo-600">Stripe Sandbox</strong> button above to populate the ledger in real-time.
-                                                    </p>
-                                                </div>
+                                            <div className="space-y-1">
+                                                <div className="text-xs font-semibold text-gray-900">No Webhook Events Recorded Yet</div>
+                                                <p className="text-[11px] text-gray-500">
+                                                    Mock data has been removed. Trigger a test event via Stripe CLI or click the <strong className="text-zinc-900">Stripe Sandbox</strong> button above to populate the ledger in real-time.
+                                                </p>
                                             </div>
-                                        )}
+                                        </div>
                                     </td>
                                 </tr>
                             )}
+
                         </tbody>
                     </table>
                 </div>

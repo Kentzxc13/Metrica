@@ -1,12 +1,26 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useDashboard } from '@/context/DashboardContext';
+import LiveStatusDot from '@/components/LiveStatusDot';
+import { HelpGuideSkeleton } from '@/components/SkeletonShimmer';
 
 export default function HelpPage() {
-    const { showActionToast } = useDashboard();
+    const { showActionToast, isPageVisited, markPageVisited } = useDashboard();
+    const alreadyVisited = isPageVisited('/help');
+    const [isLoading, setIsLoading] = useState(!alreadyVisited);
     const [openFaq, setOpenFaq] = useState<number | null>(0);
+
+    useEffect(() => {
+        if (!alreadyVisited) {
+            const timer = setTimeout(() => {
+                setIsLoading(false);
+                markPageVisited('/help');
+            }, 500);
+            return () => clearTimeout(timer);
+        }
+    }, [alreadyVisited, markPageVisited]);
 
     const toggleFaq = (index: number) => {
         setOpenFaq(openFaq === index ? null : index);
@@ -53,7 +67,10 @@ export default function HelpPage() {
             {/* Section 1: Page Header */}
             <section className="flex flex-wrap items-center justify-between gap-4" data-purpose="help-header">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Help &amp; Test Guide</h1>
+                    <div className="flex items-center gap-2.5">
+                        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Help &amp; Test Guide</h1>
+                        <LiveStatusDot />
+                    </div>
                     <p className="text-xs text-gray-500 mt-1">Platform documentation, test procedures, and venture governance methodology</p>
                 </div>
                 <div className="flex items-center gap-2.5">
@@ -78,6 +95,10 @@ export default function HelpPage() {
                 </div>
             </section>
 
+            {isLoading ? (
+                <HelpGuideSkeleton />
+            ) : (
+                <>
             {/* Section 2: Core Platform Feature Guides */}
             <section data-purpose="core-guides">
                 <div className="flex items-center justify-between mb-3">
@@ -328,6 +349,8 @@ export default function HelpPage() {
                     </div>
                 </div>
             </section>
+            </>
+            )}
         </div>
     );
 }

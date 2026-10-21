@@ -7,6 +7,8 @@ import { useDashboard } from '@/context/DashboardContext';
 import { StartupProspect } from '@/types/screening';
 import { StartupMemoModal } from '@/components/modals/StartupMemoModal';
 import { AddProspectModal } from '@/components/modals/AddProspectModal';
+import { SkeletonBone } from '@/components/SkeletonShimmer';
+import { LiveStatusDot } from '@/components/LiveStatusDot';
 
 export default function AiScreeningPage() {
     const {
@@ -71,7 +73,10 @@ export default function AiScreeningPage() {
             {/* BEGIN: Header & Dynamic Controls */}
             <section className="flex flex-wrap items-center justify-between gap-4" data-purpose="header-greeting-controls">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 tracking-tight">AI Investment Screening</h1>
+                    <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center">
+                        <span>AI Investment Screening</span>
+                        <LiveStatusDot isLoading={isLoadingStartups} size={9} />
+                    </h1>
                     <p className="text-xs text-gray-400 mt-0.5">Curated SaaS deal flow &amp; algorithmic diligence</p>
                 </div>
 
@@ -119,11 +124,49 @@ export default function AiScreeningPage() {
 
             {/* Grid of Deal Screening Rectangle Cards */}
             {isLoadingStartups && filteredStartups.length === 0 ? (
-                <div className="p-12 text-center bg-white rounded-2xl border border-gray-200/80 shadow-card">
-                    <div className="inline-block w-6 h-6 border-2 border-zinc-900 border-t-transparent rounded-full animate-spin mb-2"></div>
-                    <p className="text-xs text-gray-400">Loading live verified SaaS deal flow from Supabase...</p>
-                </div>
+                <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {Array.from({ length: 4 }).map((_, idx) => (
+                        <div
+                            key={`prospect-skel-${idx}`}
+                            className="bg-white rounded-2xl p-5 border border-gray-200/80 shadow-card flex flex-col justify-between space-y-4"
+                        >
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="flex items-center gap-3">
+                                    <SkeletonBone width={40} height={40} borderRadius={12} />
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center gap-2">
+                                            <SkeletonBone width={120} height={15} borderRadius={3} />
+                                            <SkeletonBone width={70} height={18} borderRadius={4} />
+                                        </div>
+                                        <SkeletonBone width={80} height={11} borderRadius={2} />
+                                    </div>
+                                </div>
+                                <SkeletonBone width={90} height={22} borderRadius={8} />
+                            </div>
+
+                            <div className="space-y-1.5 pt-1">
+                                <SkeletonBone width="100%" height={12} borderRadius={3} />
+                                <SkeletonBone width="80%" height={12} borderRadius={3} />
+                            </div>
+
+                            <div className="grid grid-cols-4 gap-2 border border-gray-100 rounded-xl bg-gray-50/70 p-2.5">
+                                {Array.from({ length: 4 }).map((__, cIdx) => (
+                                    <div key={cIdx} className="space-y-1">
+                                        <SkeletonBone width={30} height={9} borderRadius={2} />
+                                        <SkeletonBone width={50} height={14} borderRadius={3} />
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="pt-2 flex items-center justify-between border-t border-gray-100">
+                                <SkeletonBone width={110} height={12} borderRadius={3} />
+                                <SkeletonBone width={85} height={28} borderRadius={8} />
+                            </div>
+                        </div>
+                    ))}
+                </section>
             ) : (
+
                 <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {filteredStartups.map((startup) => {
                         const isBookmarked = bookmarkedStartupIds.includes(startup.id);

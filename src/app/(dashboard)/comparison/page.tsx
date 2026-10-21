@@ -8,6 +8,8 @@ import { useDashboard } from '@/context/DashboardContext';
 // import { COMPANIES } from '@/data/companies';
 import { Company } from '@/types/company';
 import { AiScreeningModal } from '@/components/modals/AiScreeningModal';
+import { LiveStatusDot } from '@/components/LiveStatusDot';
+import { KpiCardSkeleton, SkeletonBone, ComparisonMatrixTableSkeleton } from '@/components/SkeletonShimmer';
 
 // Module-level flag so it survives client-side page transitions (Comparison -> Dashboard -> Comparison),
 // but cleanly resets on page refresh/initial reload so user can test the entrance animation.
@@ -19,10 +21,26 @@ export default function CompanyComparisonPage() {
         selectedCompanyId,
         setSelectedCompanyId,
         companies,
+        isCompaniesLoading,
         globalSearchQuery,
         showActionToast,
         updateCompanyHealth,
+        isPageVisited,
+        markPageVisited,
     } = useDashboard();
+
+    const alreadyVisited = isPageVisited('/comparison');
+    const [isLoading, setIsLoading] = useState(!alreadyVisited);
+
+    useEffect(() => {
+        if (!alreadyVisited) {
+            const timer = setTimeout(() => {
+                setIsLoading(false);
+                markPageVisited('/comparison');
+            }, 500);
+            return () => clearTimeout(timer);
+        }
+    }, [alreadyVisited, markPageVisited]);
 
     // Benchmark matrix one-time animation state across navigation
     const [shouldAnimateRows, setShouldAnimateRows] = useState<boolean>(() => hasEverAnimatedComparison);
@@ -101,7 +119,10 @@ export default function CompanyComparisonPage() {
             {/* BEGIN: PageHeadingAndControls */}
             <section className="flex flex-wrap items-center justify-between gap-4" data-purpose="header-greeting-controls">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Company Comparison</h1>
+                    <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center">
+                        <span>Company Comparison</span>
+                        <LiveStatusDot isLoading={isLoading} size={9} />
+                    </h1>
                     <p className="text-xs text-gray-400 mt-0.5">Benchmark matrix &amp; portfolio valuation tiers</p>
                 </div>
 
@@ -131,15 +152,24 @@ export default function CompanyComparisonPage() {
 
             {/* BEGIN: MetricCardsGrid */}
             <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" data-purpose="kpi-metric-cards">
-                {/* Card 1: Combined Portfolio MRR */}
-                <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-card flex flex-col justify-between hover:shadow-floating transition-shadow">
-                    <div className="flex justify-between items-start">
-                        <div className="space-y-1">
-                            <div className="flex items-center gap-1.5">
-                                <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">Total Portfolio MRR</span>
-                            </div>
-                            <div className="text-2xl font-bold text-gray-900 tracking-tight font-mono">$337,600</div>
-                        </div>
+                {isLoading ? (
+                    <>
+                        <KpiCardSkeleton />
+                        <KpiCardSkeleton />
+                        <KpiCardSkeleton />
+                        <KpiCardSkeleton />
+                    </>
+                ) : (
+                    <>
+                        {/* Card 1: Combined Portfolio MRR */}
+                        <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-card flex flex-col justify-between hover:shadow-floating transition-shadow">
+                            <div className="flex justify-between items-start">
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">Total Portfolio MRR</span>
+                                    </div>
+                                    <div className="text-2xl font-bold text-gray-900 tracking-tight font-mono">$337,600</div>
+                                </div>
                         <div className="flex items-end gap-1 h-8 pt-1">
                             <div className="w-1 bg-gray-200 rounded-full h-3"></div>
                             <div className="w-1 bg-gray-300 rounded-full h-5"></div>
@@ -264,8 +294,10 @@ export default function CompanyComparisonPage() {
                         </button>
                     </div>
                 </div>
-            </section>
-            {/* END: MetricCardsGrid */}
+            </>
+        )}
+    </section>
+    {/* END: MetricCardsGrid */}
 
             {/* Benchmark Matrix Table Container */}
             <section ref={tableSectionRef} className="bg-white rounded-2xl border border-gray-200/80 shadow-card p-5" data-purpose="benchmark-matrix">
@@ -315,8 +347,11 @@ export default function CompanyComparisonPage() {
                 </div>
 
                 {/* Table */}
-                <div className="overflow-x-auto overflow-y-hidden" style={{ overflowY: 'hidden' }}>
-                    <table className="w-full text-left text-xs border-collapse">
+                {isLoading ? (
+                    <ComparisonMatrixTableSkeleton rows={4} />
+                ) : (
+                    <div className="overflow-x-auto overflow-y-hidden" style={{ overflowY: 'hidden' }}>
+                        <table className="w-full text-left text-xs border-collapse">
                         <thead>
                             <tr className="border-b border-gray-100 text-gray-400 font-semibold uppercase text-[11px]">
                                 <th className="py-3 px-2 w-8">
@@ -560,6 +595,7 @@ export default function CompanyComparisonPage() {
                         </tbody>
                     </table>
                 </div>
+                )}
             </section>
 
             {/* AI Evaluation Modal if triggered from action menu */}

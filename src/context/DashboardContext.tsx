@@ -45,6 +45,10 @@ interface DashboardContextType {
     addTransaction: (newTx: Transaction) => void;
     deleteTransaction: (id: string) => Promise<boolean>;
     refreshTransactions: () => Promise<void>;
+    // Session-level visited pages cache for skeleton shimmer control
+    visitedPages: string[];
+    isPageVisited: (pagePath: string) => boolean;
+    markPageVisited: (pagePath: string) => void;
 }
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
@@ -56,6 +60,16 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     const [alerts, setAlerts] = useState<SystemAlert[]>(INITIAL_SYSTEM_ALERTS);
     const [messages, setMessages] = useState<TeamMessage[]>(INITIAL_TEAM_MESSAGES);
     const [bookmarkedStartupIds, setBookmarkedStartupIds] = useState<string[]>([]);
+    // Track visited pages across client-side navigation in session
+    const [visitedPages, setVisitedPages] = useState<string[]>([]);
+
+    const isPageVisited = useCallback((pagePath: string) => {
+        return visitedPages.includes(pagePath);
+    }, [visitedPages]);
+
+    const markPageVisited = useCallback((pagePath: string) => {
+        setVisitedPages(prev => (prev.includes(pagePath) ? prev : [...prev, pagePath]));
+    }, []);
 
     // Live companies loaded directly from Supabase
     const [companies, setCompanies] = useState<Company[]>([]);
@@ -365,6 +379,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
                 addTransaction,
                 deleteTransaction,
                 refreshTransactions,
+                visitedPages,
+                isPageVisited,
+                markPageVisited,
             }}
         >
             {children}

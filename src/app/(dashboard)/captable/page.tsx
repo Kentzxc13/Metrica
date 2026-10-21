@@ -4,19 +4,22 @@ import { useEffect, useState } from 'react';
 import { useDashboard } from '@/context/DashboardContext';
 import { CapTableHolding } from '@/types/captable';
 import { CapTableInspectorModal } from '@/components/modals/CapTableInspectorModal';
+import { SkeletonBone, KpiCardSkeleton } from '@/components/SkeletonShimmer';
+import { LiveStatusDot } from '@/components/LiveStatusDot';
 
 export default function CapTableOwnershipPage() {
-    const { globalSearchQuery, showActionToast } = useDashboard();
+    const { globalSearchQuery, showActionToast, isPageVisited, markPageVisited } = useDashboard();
+    const alreadyVisited = isPageVisited('/captable');
 
     const [capTableHoldings, setCapTableHoldings] = useState<CapTableHolding[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(!alreadyVisited);
     const [capTableStageFilter, setCapTableStageFilter] = useState<'All' | 'Series A' | 'Seed'>('All');
     const [selectedHoldingForModal, setSelectedHoldingForModal] = useState<CapTableHolding | null>(null);
 
     useEffect(() => {
         const loadCapTable = async () => {
             try {
-                setIsLoading(true);
+                if (!alreadyVisited) setIsLoading(true);
 
                 const response = await fetch('/api/captable');
 
@@ -32,11 +35,12 @@ export default function CapTableOwnershipPage() {
                 setCapTableHoldings([]);
             } finally {
                 setIsLoading(false);
+                markPageVisited('/captable');
             }
         };
 
         loadCapTable();
-    }, []);
+    }, [alreadyVisited, markPageVisited]);
 
     // Filtered holdings (driven by Global Header Search & Stage Filter)
     const filteredCapTableHoldings = capTableHoldings.filter(h => {
@@ -91,7 +95,10 @@ export default function CapTableOwnershipPage() {
             {/* Section 1: Page Heading and Filter Controls */}
             <section className="flex flex-wrap items-center justify-between gap-4" data-purpose="captable-header-controls">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Cap Table &amp; Ownership</h1>
+                    <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center">
+                        <span>Cap Table &amp; Ownership</span>
+                        <LiveStatusDot isLoading={isLoading} size={9} />
+                    </h1>
                     <p className="text-xs text-gray-400 mt-0.5">Portfolio capital allocation, equity ownership &amp; investment return multiples</p>
                 </div>
                 <div className="flex items-center gap-2.5">
@@ -112,17 +119,26 @@ export default function CapTableOwnershipPage() {
 
             {/* Section 2: Fund Performance Metric Strip (4 KPI Cards) */}
             <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" data-purpose="captable-kpi-cards">
-                {/* Card 1: Total Capital Invested */}
-                <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-card flex flex-col justify-between hover:shadow-floating transition-shadow">
-                    <div className="flex justify-between items-start">
-                        <div className="space-y-1">
-                            <div className="flex items-center gap-1.5">
-                                <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">Total Invested</span>
-                            </div>
-                            <div className="flex items-baseline gap-1.5">
-                                <span className="text-2xl font-bold font-mono text-gray-900 tracking-tight">
-                                    {isLoading ? '—' : formatKpiMoney(totalInvested)}
-                                </span>
+                {isLoading ? (
+                    <>
+                        <KpiCardSkeleton />
+                        <KpiCardSkeleton />
+                        <KpiCardSkeleton />
+                        <KpiCardSkeleton />
+                    </>
+                ) : (
+                    <>
+                        {/* Card 1: Total Capital Invested */}
+                        <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-card flex flex-col justify-between hover:shadow-floating transition-shadow">
+                            <div className="flex justify-between items-start">
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400">Total Invested</span>
+                                    </div>
+                                    <div className="flex items-baseline gap-1.5">
+                                        <span className="text-2xl font-bold font-mono text-gray-900 tracking-tight">
+                                            {formatKpiMoney(totalInvested)}
+                                        </span>
                                 <span className="text-xs text-gray-400 font-normal">Deployed</span>
                             </div>
                         </div>
@@ -149,10 +165,18 @@ export default function CapTableOwnershipPage() {
                             </div>
                             <div className="flex items-baseline gap-1.5">
                                 <span className="text-2xl font-bold font-mono text-gray-900 tracking-tight">
-                                    {isLoading ? '—' : formatKpiMoney(totalFairValue)}
+                                    {isLoading ? (
+                                        <SkeletonBone width={110} height={26} borderRadius={4} />
+                                    ) : (
+                                        formatKpiMoney(totalFairValue)
+                                    )}
                                 </span>
                                 <span className="text-xs text-emerald-600 font-medium">
-                                    {isLoading ? '—' : formatKpiMoney(totalUnrealizedGain)}
+                                    {isLoading ? (
+                                        <SkeletonBone width={50} height={16} borderRadius={3} />
+                                    ) : (
+                                        formatKpiMoney(totalUnrealizedGain)
+                                    )}
                                 </span>
                             </div>
                         </div>
@@ -184,7 +208,11 @@ export default function CapTableOwnershipPage() {
                             </div>
                             <div className="flex items-baseline gap-1.5">
                                 <span className="text-2xl font-bold font-mono text-gray-900 tracking-tight">
-                                    {isLoading ? '—' : `${weightedMoic.toFixed(2)}x`}
+                                    {isLoading ? (
+                                        <SkeletonBone width={70} height={26} borderRadius={4} />
+                                    ) : (
+                                        `${weightedMoic.toFixed(2)}x`
+                                    )}
                                 </span>
                                 <span className="text-xs text-gray-400 font-normal">Multiple</span>
                             </div>
@@ -217,7 +245,11 @@ export default function CapTableOwnershipPage() {
                             </div>
                             <div className="flex items-baseline gap-1.5">
                                 <span className="text-2xl font-bold font-mono text-gray-900 tracking-tight">
-                                    {isLoading ? '—' : `+${weightedIrr.toFixed(1)}%`}
+                                    {isLoading ? (
+                                        <SkeletonBone width={80} height={26} borderRadius={4} />
+                                    ) : (
+                                        `+${weightedIrr.toFixed(1)}%`
+                                    )}
                                 </span>
                                 <span className="text-xs text-emerald-600 font-normal">Annualized</span>
                             </div>
@@ -235,7 +267,9 @@ export default function CapTableOwnershipPage() {
                         <span className="text-[10px] text-gray-400 font-mono">Net of Carry</span>
                     </div>
                 </div>
-            </section>
+            </>
+        )}
+    </section>
 
             {/* Section 3: Master Cap Table & Ownership Matrix Table */}
             <section className="bg-white rounded-2xl p-5 border border-gray-200/80 shadow-card" data-purpose="captable-table">
@@ -291,12 +325,56 @@ export default function CapTableOwnershipPage() {
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {isLoading && (
-                                <tr>
-                                    <td colSpan={9} className="py-12 text-center text-gray-400">
-                                        Loading cap table...
-                                    </td>
-                                </tr>
+                                Array.from({ length: 5 }).map((_, rIdx) => (
+                                    <tr key={`captable-skel-${rIdx}`} className="hover:bg-gray-50/40">
+                                        <td className="py-3.5 px-3">
+                                            <div className="flex items-center gap-3">
+                                                <SkeletonBone width={32} height={32} borderRadius={8} />
+                                                <div className="space-y-1">
+                                                    <SkeletonBone width={110} height={14} borderRadius={3} />
+                                                    <SkeletonBone width={70} height={10} borderRadius={2} />
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="py-3.5 px-3">
+                                            <div className="space-y-1">
+                                                <SkeletonBone width={65} height={13} borderRadius={3} />
+                                                <SkeletonBone width={90} height={10} borderRadius={2} />
+                                            </div>
+                                        </td>
+                                        <td className="py-3.5 px-3 text-right">
+                                            <div className="flex justify-end">
+                                                <SkeletonBone width={75} height={14} borderRadius={3} />
+                                            </div>
+                                        </td>
+                                        <td className="py-3.5 px-3 text-right">
+                                            <div className="flex justify-end">
+                                                <SkeletonBone width={45} height={14} borderRadius={3} />
+                                            </div>
+                                        </td>
+                                        <td className="py-3.5 px-3 text-right">
+                                            <div className="flex justify-end">
+                                                <SkeletonBone width={70} height={14} borderRadius={3} />
+                                            </div>
+                                        </td>
+                                        <td className="py-3.5 px-3 text-right">
+                                            <div className="flex justify-end">
+                                                <SkeletonBone width={80} height={14} borderRadius={3} />
+                                            </div>
+                                        </td>
+                                        <td className="py-3.5 px-3 text-center">
+                                            <SkeletonBone width={40} height={18} borderRadius={4} className="mx-auto" />
+                                        </td>
+                                        <td className="py-3.5 px-3">
+                                            <SkeletonBone width={95} height={14} borderRadius={4} />
+                                        </td>
+                                        <td className="py-3.5 px-3 text-center">
+                                            <SkeletonBone width={24} height={24} borderRadius={6} className="mx-auto" />
+                                        </td>
+                                    </tr>
+                                ))
                             )}
+
 
                             {!isLoading && filteredCapTableHoldings.map((h) => (
                                 <tr

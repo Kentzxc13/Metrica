@@ -5,13 +5,20 @@ import { useDashboard } from '@/context/DashboardContext';
 import { INITIAL_BOARD_MEETINGS } from '@/data/governance';
 import { BoardMeeting, BoardCommitment } from '@/types/governance';
 import { AddCommitmentModal } from '@/components/modals/AddCommitmentModal';
+import {
+    SkeletonBone,
+    MilestoneTimelineSkeleton,
+    GovernanceCockpitSkeleton,
+} from '@/components/SkeletonShimmer';
+import { LiveStatusDot } from '@/components/LiveStatusDot';
 
 export default function BoardGovernancePage() {
-    const { globalSearchQuery, showActionToast } = useDashboard();
+    const { globalSearchQuery, showActionToast, isPageVisited, markPageVisited } = useDashboard();
+    const alreadyVisited = isPageVisited('/governance');
     const [boardMeetings, setBoardMeetings] =
         useState<BoardMeeting[]>(INITIAL_BOARD_MEETINGS);
 
-    const [isLoadingCommitments, setIsLoadingCommitments] = useState(true);
+    const [isLoadingCommitments, setIsLoadingCommitments] = useState(!alreadyVisited);
     const [selectedMeetingId, setSelectedMeetingId] = useState<string>('bm-2');
     const [isAddCommitmentOpen, setIsAddCommitmentOpen] = useState(false);
     const [isGeneratingProbes, setIsGeneratingProbes] = useState(false);
@@ -19,7 +26,7 @@ export default function BoardGovernancePage() {
     useEffect(() => {
         const loadGovernanceCommitments = async () => {
             try {
-                setIsLoadingCommitments(true);
+                if (!alreadyVisited) setIsLoadingCommitments(true);
 
                 const response = await fetch('/api/governance');
 
@@ -102,11 +109,12 @@ export default function BoardGovernancePage() {
                 );
             } finally {
                 setIsLoadingCommitments(false);
+                markPageVisited('/governance');
             }
         };
 
         loadGovernanceCommitments();
-    }, []);
+    }, [alreadyVisited, markPageVisited]);
 
     const filteredBoardMeetings = boardMeetings.filter(m =>
         m.companyName.toLowerCase().includes(globalSearchQuery.toLowerCase()) ||
@@ -130,8 +138,8 @@ export default function BoardGovernancePage() {
     const commitmentDeliveryRate =
         totalCommitments > 0
             ? Math.round(
-                  (completedCommitments / totalCommitments) * 100
-              )
+                (completedCommitments / totalCommitments) * 100
+            )
             : 0;
 
     // Interactive Commitment Status Toggle (spec/frontend/Governance_Interactive_Cockpit.md)
@@ -157,8 +165,7 @@ export default function BoardGovernancePage() {
         );
 
         showActionToast(
-            `Mandate "${commitment.title}" marked as ${
-                nextStatus === 'completed' ? 'Completed (Delivered)' : 'In Review'
+            `Mandate "${commitment.title}" marked as ${nextStatus === 'completed' ? 'Completed (Delivered)' : 'In Review'
             }`
         );
 
@@ -222,7 +229,10 @@ export default function BoardGovernancePage() {
         <div className="flex flex-col gap-5 pb-8">
             {/* Section 1: Page Heading */}
             <section data-purpose="governance-header-controls">
-                <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Board Governance &amp; Cadence</h1>
+                <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center">
+                    <span>Board Governance &amp; Cadence</span>
+                    <LiveStatusDot isLoading={isLoadingCommitments} size={9} />
+                </h1>
                 <p className="text-xs text-gray-500 mt-1">Quarterly board meetings, management commitments &amp; institutional governance pack</p>
             </section>
 
@@ -236,48 +246,55 @@ export default function BoardGovernancePage() {
                     <span className="text-xs font-mono font-medium text-gray-500 bg-gray-50 border border-gray-200/80 px-2.5 py-1 rounded-lg">Q4 2025 - Q1 2026</span>
                 </div>
 
-                {/* 5 Milestone Session Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3.5">
-                    {boardMeetings.map((bm, index) => {
-                        const isSelected = selectedMeetingId === bm.id;
-                        return (
-                            <div
-                                key={bm.id}
-                                onClick={() => setSelectedMeetingId(bm.id)}
-                                className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-start min-h-[140px] ${isSelected
-                                    ? 'bg-white border-zinc-900 shadow-sm ring-1 ring-zinc-900/10'
-                                    : 'bg-white border-gray-200/80 hover:border-gray-300 hover:shadow-xs'
-                                    }`}
-                            >
-                                <div className="flex items-center justify-between">
-                                    <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-md ${isSelected ? 'bg-zinc-900 text-white' : 'bg-gray-100 text-gray-500'}`}>
-                                        Session 0{index + 1}
-                                    </span>
-                                    <div className="w-8 h-8 rounded-xl bg-black text-white font-bold text-xs flex items-center justify-center shadow-xs shrink-0">
-                                        {bm.initials}
+                {/* 5 Milestone Session Cards / Skeleton */}
+                {isLoadingCommitments ? (
+                    <MilestoneTimelineSkeleton />
+                ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3.5">
+                        {boardMeetings.map((bm, index) => {
+                            const isSelected = selectedMeetingId === bm.id;
+                            return (
+                                <div
+                                    key={bm.id}
+                                    onClick={() => setSelectedMeetingId(bm.id)}
+                                    className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-start min-h-[140px] ${isSelected
+                                        ? 'bg-white border-zinc-900 shadow-sm ring-1 ring-zinc-900/10'
+                                        : 'bg-white border-gray-200/80 hover:border-gray-300 hover:shadow-xs'
+                                        }`}
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-md ${isSelected ? 'bg-zinc-900 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                                            Session 0{index + 1}
+                                        </span>
+                                        <div className="w-8 h-8 rounded-xl bg-black text-white font-bold text-xs flex items-center justify-center shadow-xs shrink-0">
+                                            {bm.initials}
+                                        </div>
                                     </div>
+                                    <div className="mt-2.5">
+                                        <h3 className="text-sm font-bold text-gray-900 tracking-tight">
+                                            {bm.companyName}
+                                        </h3>
+                                    </div>
+                                    <p className="text-[11px] font-medium text-gray-400 mt-0.5">
+                                        {bm.nextMeetingDate.split('•')[0].trim()}
+                                    </p>
+                                    <p className="mt-2 text-xs text-gray-600 leading-relaxed line-clamp-2">
+                                        {bm.agendaTopic}
+                                    </p>
                                 </div>
-                                <div className="mt-2.5">
-                                    <h3 className="text-sm font-bold text-gray-900 tracking-tight">
-                                        {bm.companyName}
-                                    </h3>
-                                </div>
-                                <p className="text-[11px] font-medium text-gray-400 mt-0.5">
-                                    {bm.nextMeetingDate.split('•')[0].trim()}
-                                </p>
-                                <p className="mt-2 text-xs text-gray-600 leading-relaxed line-clamp-2">
-                                    {bm.agendaTopic}
-                                </p>
-                            </div>
-                        );
-                    })}
-                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </section>
 
-            {/* Section 3: Split Executive Cockpit (Connected Master-Detail) */}
-            <section className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch" data-purpose="governance-cockpit-view">
-                {/* Left Column (7 cols): Selected Session Dossier & Pre-Meeting Pack */}
-                <div className="lg:col-span-7 flex flex-col">
+            {/* Section 3: Split Executive Cockpit (Connected Master-Detail) / Skeleton */}
+            {isLoadingCommitments ? (
+                <GovernanceCockpitSkeleton />
+            ) : (
+                <section className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch" data-purpose="governance-cockpit-view">
+                    {/* Left Column (7 cols): Selected Session Dossier & Pre-Meeting Pack */}
+                    <div className="lg:col-span-7 flex flex-col">
                     <div className="bg-white rounded-2xl border border-gray-200/80 p-5 shadow-card space-y-4 h-full flex flex-col justify-between">
                         {/* Dossier Header */}
                         <div className="flex items-center justify-between pb-3.5 border-b border-gray-100">
@@ -438,50 +455,73 @@ export default function BoardGovernancePage() {
                             </button>
                         </div>
 
-                        {/* Deliverables List: Scrollable showing commitments */}
+                        {/* Deliverables List: Scrollable showing commitments / Shimmer Skeleton */}
                         <div className="space-y-2.5 my-3 max-h-[148px] overflow-y-auto pr-1.5 custom-scrollbar">
-                            {selectedMeeting.priorCommitments?.map((commitment) => {
-                                const isCompleted = commitment.status === 'completed';
-                                const isInProgress = commitment.status === 'in_progress';
-
-                                return (
+                            {isLoadingCommitments ? (
+                                Array.from({ length: 3 }).map((_, idx) => (
                                     <div
-                                        key={commitment.id}
-                                        onClick={() => showActionToast(`Mandate status: "${commitment.title}" (${commitment.owner})`)}
-                                        className="p-3 rounded-xl bg-gray-50/80 hover:bg-gray-100/80 border border-gray-200/70 transition-all cursor-pointer flex flex-col justify-between gap-1.5"
+                                        key={`gov-skel-${idx}`}
+                                        className="p-3 rounded-xl bg-gray-50/70 border border-gray-200/60 flex flex-col justify-between gap-2"
                                     >
                                         <div className="flex items-center justify-between gap-2">
-                                            <div className="flex items-center gap-2 min-w-0">
-                                                <span className={`text-xs font-bold shrink-0 ${isCompleted ? 'text-emerald-600' : isInProgress ? 'text-zinc-900' : 'text-amber-600'
-                                                    }`}>
-                                                {isCompleted ? '✓' : isInProgress ? '●' : '⚠'}
-                                                </span>
-                                                <span className="text-xs font-semibold text-gray-900 truncate">
-                                                    {commitment.title}
-                                                </span>
+                                            <div className="flex items-center gap-2 flex-1">
+                                                <SkeletonBone width={14} height={14} borderRadius={99} />
+                                                <SkeletonBone width="75%" height={13} borderRadius={3} />
                                             </div>
-                                            <button
-                                                type="button"
-                                                onClick={(e) => handleToggleCommitmentStatus(e, commitment)}
-                                                title="Click to toggle status (Completed / In Review)"
-                                                className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-md shrink-0 cursor-pointer transition-transform active:scale-95 hover:opacity-90 ${isCompleted
-                                                    ? 'bg-emerald-100/70 text-emerald-800 hover:bg-emerald-200'
-                                                    : isInProgress
-                                                        ? 'bg-zinc-200 text-zinc-800 hover:bg-zinc-300'
-                                                        : 'bg-amber-100 text-amber-800 hover:bg-amber-200'
-                                                    }`}
-                                            >
-                                                {isCompleted ? '✓ Completed' : isInProgress ? '● In Review' : '⚠ Delayed'}
-                                            </button>
+                                            <SkeletonBone width={70} height={18} borderRadius={4} />
                                         </div>
-                                        <div className="flex items-center justify-between text-xs text-gray-500 pl-4">
-                                            <span className="truncate">Lead: {commitment.owner}</span>
-                                            <span className="font-mono text-[11px] shrink-0 text-gray-500">{commitment.targetDeadline}</span>
+                                        <div className="flex items-center justify-between pl-5">
+                                            <SkeletonBone width={80} height={10} borderRadius={2} />
+                                            <SkeletonBone width={60} height={10} borderRadius={2} />
                                         </div>
                                     </div>
-                                );
-                            })}
+                                ))
+                            ) : (
+                                selectedMeeting.priorCommitments?.map((commitment) => {
+                                    const isCompleted = commitment.status === 'completed';
+                                    const isInProgress = commitment.status === 'in_progress';
+
+                                    return (
+                                        <div
+                                            key={commitment.id}
+                                            onClick={() => showActionToast(`Mandate status: "${commitment.title}" (${commitment.owner})`)}
+                                            className="p-3 rounded-xl bg-gray-50/80 hover:bg-gray-100/80 border border-gray-200/70 transition-all cursor-pointer flex flex-col justify-between gap-1.5"
+                                        >
+
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <span className={`text-xs font-bold shrink-0 ${isCompleted ? 'text-emerald-600' : isInProgress ? 'text-zinc-900' : 'text-amber-600'
+                                                        }`}>
+                                                        {isCompleted ? '✓' : isInProgress ? '●' : '⚠'}
+                                                    </span>
+                                                    <span className="text-xs font-semibold text-gray-900 truncate">
+                                                        {commitment.title}
+                                                    </span>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => handleToggleCommitmentStatus(e, commitment)}
+                                                    title="Click to toggle status (Completed / In Review)"
+                                                    className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-md shrink-0 cursor-pointer transition-transform active:scale-95 hover:opacity-90 ${isCompleted
+                                                        ? 'bg-emerald-100/70 text-emerald-800 hover:bg-emerald-200'
+                                                        : isInProgress
+                                                            ? 'bg-zinc-200 text-zinc-800 hover:bg-zinc-300'
+                                                            : 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+                                                        }`}
+                                                >
+                                                    {isCompleted ? '✓ Completed' : isInProgress ? '● In Review' : '⚠ Delayed'}
+                                                </button>
+                                            </div>
+                                            <div className="flex items-center justify-between text-xs text-gray-500 pl-4">
+                                                <span className="truncate">Lead: {commitment.owner}</span>
+                                                <span className="font-mono text-[11px] shrink-0 text-gray-500">{commitment.targetDeadline}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            )}
                         </div>
+
 
                         {/* Footer Audit Assurance */}
                         <div className="pt-2.5 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
@@ -565,6 +605,7 @@ export default function BoardGovernancePage() {
                     </div>
                 </div>
             </section>
+        )}
 
             {/* Add Commitment Modal */}
             <AddCommitmentModal

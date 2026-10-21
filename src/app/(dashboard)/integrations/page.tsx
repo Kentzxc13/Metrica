@@ -4,9 +4,23 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useDashboard } from '@/context/DashboardContext';
 import { INITIAL_DATA_PIPELINES } from '@/data/pipelines';
 import { DataPipeline } from '@/types/pipeline';
+import LiveStatusDot from '@/components/LiveStatusDot';
+import { PipelinesTableSkeleton, CurlQuickstartSkeleton } from '@/components/SkeletonShimmer';
 
 export default function IntegrationsPage() {
-    const { globalSearchQuery, showActionToast } = useDashboard();
+    const { globalSearchQuery, showActionToast, isPageVisited, markPageVisited } = useDashboard();
+    const alreadyVisited = isPageVisited('/integrations');
+    const [isLoading, setIsLoading] = useState(!alreadyVisited);
+
+    useEffect(() => {
+        if (!alreadyVisited) {
+            const timer = setTimeout(() => {
+                setIsLoading(false);
+                markPageVisited('/integrations');
+            }, 500);
+            return () => clearTimeout(timer);
+        }
+    }, [alreadyVisited, markPageVisited]);
     // Maintain each pipeline with an internal seconds elapsed counter
     const [pipelines, setPipelines] = useState<(DataPipeline & { secondsElapsed: number })[]>(() =>
         INITIAL_DATA_PIPELINES.map(p => {
@@ -148,7 +162,10 @@ export default function IntegrationsPage() {
             {/* Section 1: Page Heading and Controls */}
             <section className="flex flex-wrap items-center justify-between gap-4" data-purpose="integrations-header-controls">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Data Pipelines &amp; APIs</h1>
+                    <div className="flex items-center gap-2.5">
+                        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Data Pipelines &amp; APIs</h1>
+                        <LiveStatusDot />
+                    </div>
                     <p className="text-xs text-gray-500 mt-1">Real-time enterprise ingestion pipes, REST/GraphQL endpoints &amp; cryptographic audit sync</p>
                 </div>
                 <div className="flex items-center gap-2.5">
@@ -174,7 +191,10 @@ export default function IntegrationsPage() {
             </section>
 
             {/* Section 2: Master Telemetry Connectors Table (Active Pipelines) */}
-            <section className="bg-white rounded-2xl border border-gray-200/80 shadow-card overflow-visible" data-purpose="telemetry-connectors-table">
+            {isLoading ? (
+                <PipelinesTableSkeleton rows={6} />
+            ) : (
+                <section className="bg-white rounded-2xl border border-gray-200/80 shadow-card overflow-visible" data-purpose="telemetry-connectors-table">
                 {/* Table Header Controls */}
                 <div className="p-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
@@ -372,31 +392,36 @@ export default function IntegrationsPage() {
                     </table>
                 </div>
             </section>
+            )}
 
             {/* Section 4: Integration Quick-Start cURL Terminal Box */}
-            <section className="bg-white rounded-2xl border border-gray-200/80 p-4 shadow-card space-y-3" data-purpose="curl-quickstart">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                        <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">Quick Ingestion Webhook cURL</h3>
+            {isLoading ? (
+                <CurlQuickstartSkeleton />
+            ) : (
+                <section className="bg-white rounded-2xl border border-gray-200/80 p-4 shadow-card space-y-3" data-purpose="curl-quickstart">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                            <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">Quick Ingestion Webhook cURL</h3>
+                        </div>
+                        <button
+                            onClick={handleCopyCurl}
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-100 hover:bg-gray-200/80 text-gray-700 text-[11px] font-medium transition-colors"
+                        >
+                            <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
+                            </svg>
+                            <span>Copy cURL</span>
+                        </button>
                     </div>
-                    <button
-                        onClick={handleCopyCurl}
-                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-100 hover:bg-gray-200/80 text-gray-700 text-[11px] font-medium transition-colors"
-                    >
-                        <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
-                        </svg>
-                        <span>Copy cURL</span>
-                    </button>
-                </div>
-                <div className="p-3 rounded-xl bg-zinc-950 text-gray-200 font-mono text-[11px] leading-relaxed overflow-x-auto border border-zinc-800">
-                    <span className="text-emerald-400">curl</span> -X POST https://api.metrica.io/v1/telemetry/events \<br />
-                    &nbsp;&nbsp;-H <span className="text-amber-300">&quot;Authorization: Bearer mtr_live_98b8c7e9a2&quot;</span> \<br />
-                    &nbsp;&nbsp;-H <span className="text-amber-300">&quot;Content-Type: application/json&quot;</span> \<br />
-                    &nbsp;&nbsp;-d <span className="text-sky-300">&apos;&#123;&quot;event&quot;:&quot;mrr.checkpoint&quot;,&quot;amount&quot;:18500,&quot;currency&quot;:&quot;USD&quot;&#125;&apos;</span>
-                </div>
-            </section>
+                    <div className="p-3 rounded-xl bg-zinc-950 text-gray-200 font-mono text-[11px] leading-relaxed overflow-x-auto border border-zinc-800">
+                        <span className="text-emerald-400">curl</span> -X POST https://api.metrica.io/v1/telemetry/events \<br />
+                        &nbsp;&nbsp;-H <span className="text-amber-300">&quot;Authorization: Bearer mtr_live_98b8c7e9a2&quot;</span> \<br />
+                        &nbsp;&nbsp;-H <span className="text-amber-300">&quot;Content-Type: application/json&quot;</span> \<br />
+                        &nbsp;&nbsp;-d <span className="text-sky-300">&apos;&#123;&quot;event&quot;:&quot;mrr.checkpoint&quot;,&quot;amount&quot;:18500,&quot;currency&quot;:&quot;USD&quot;&#125;&apos;</span>
+                    </div>
+                </section>
+            )}
         </div>
     );
 }
