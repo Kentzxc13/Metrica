@@ -512,7 +512,7 @@ export default function DashboardOverviewPage() {
           (t) => t.payment_timestamp && t.payment_timestamp.startsWith(targetDateStr)
         );
         const txSum = matchingTxs.reduce((sum, t) => sum + (t.amount || 0), 0);
-        let dayRev = txSum > 0 ? txSum : Math.round((totalCategoryRevenue / 18) * (0.84 + (((d * 23) % 32) / 100)));
+        const dayRev = txSum > 0 ? txSum : Math.round((totalCategoryRevenue / 18) * (0.84 + (((d * 23) % 32) / 100)));
         return { label: `Sep ${d}`, amount: dayRev };
       });
     } else if (selectedCategoryPeriod === "Last 30 Days") {

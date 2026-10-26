@@ -272,7 +272,7 @@ export async function POST(request: NextRequest) {
                 });
 
                 // 3. Insert payment (defensive: attempt with verification_hash, fallback without if column absent)
-                let insertPayload: Record<string, unknown> = {
+                const insertPayload: Record<string, unknown> = {
                     payment_id: body.payment_id,
                     company_id: companyUuid,
                     amount: body.amount,
