@@ -1,0 +1,31 @@
+export interface CapTableHolding {
+    id: string;
+    ventureId: string;
+    companyName: string;
+    ticker: string;
+    initials: string;
+    sector: string;
+    stage: 'Series A' | 'Seed';
+    shareClass: string;
+    initialInvestDate: string;
+    capitalInvested: number;
+    capitalInvestedFormatted: string;
+    equityPercent: number;
+    postMoneyValuation: number;
+    postMoneyValuationFormatted: string;
+    currentFairValue: number;
+    currentFairValueFormatted: string;
+    unrealizedGainFormatted: string;
+    moic: number;
+    irr: number;
+    boardRole: 'Board Director' | 'Board Observer';
+    proRataRights: boolean;
+    foundersEquity: number;
+    esopPool: number;
+    otherInvestorsEquity: number;
+    sharesOwned: string;
+    pricePerShare: string;
+    liquidationPref: string;
+    antiDilution: string;
+    latestFundingNote: string;
+}
