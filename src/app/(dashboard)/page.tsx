@@ -2,9 +2,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useDashboard } from "@/context/DashboardContext";
-// Mock fallback kept commented out
-// import { MONTHS_DATA } from "@/data/companies";
-import { REVENUE_BREAKDOWN_BARS, MONTHS_DATA } from "@/data/companies";
 import { Transaction } from "@/types/company";
 import { AiScreeningModal } from "@/components/modals/AiScreeningModal";
 import { AddPaymentModal } from "@/components/modals/AddPaymentModal";

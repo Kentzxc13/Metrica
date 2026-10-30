@@ -4,11 +4,10 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useDashboard } from '@/context/DashboardContext';
-import { COMPANIES } from '@/data/companies';
 
 export function LeftSidebar() {
     const pathname = usePathname();
-    const { selectedCompanyId, setSelectedCompanyId, currentCompany, showActionToast } = useDashboard();
+    const { selectedCompanyId, setSelectedCompanyId, currentCompany, companies, showActionToast } = useDashboard();
     const [isWorkspaceOpen, setIsWorkspaceOpen] = useState<boolean>(false);
 
     const isNavActive = (path: string) => {
@@ -58,7 +57,7 @@ export function LeftSidebar() {
                             <div className="px-2 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
                                 Switch Company
                             </div>
-                            {COMPANIES.map((comp) => (
+                            {(companies.length > 0 ? companies : (currentCompany ? [currentCompany] : [])).map((comp) => (
                                 <button
                                     key={comp.id}
                                     onClick={() => {

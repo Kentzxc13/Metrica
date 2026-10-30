@@ -2,8 +2,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useDashboard } from '@/context/DashboardContext';
-// Mock fallback kept commented out
-// import { INITIAL_SCREENING_STARTUPS } from '@/data/screening';
 import { StartupProspect } from '@/types/screening';
 import { StartupMemoModal } from '@/components/modals/StartupMemoModal';
 import { AddProspectModal } from '@/components/modals/AddProspectModal';

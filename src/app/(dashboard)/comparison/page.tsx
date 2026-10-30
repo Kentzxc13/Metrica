@@ -4,8 +4,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useDashboard } from '@/context/DashboardContext';
-// Mock fallback commented out
-// import { COMPANIES } from '@/data/companies';
 import { Company } from '@/types/company';
 import { AiScreeningModal } from '@/components/modals/AiScreeningModal';
 import { LiveStatusDot } from '@/components/LiveStatusDot';

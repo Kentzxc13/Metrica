@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useDashboard } from '@/context/DashboardContext';
-import { INITIAL_BOARD_MEETINGS } from '@/data/governance';
+import { INITIAL_BOARD_MEETINGS } from './governanceData';
 import { BoardMeeting, BoardCommitment } from '@/types/governance';
 import { AddCommitmentModal } from '@/components/modals/AddCommitmentModal';
 import {

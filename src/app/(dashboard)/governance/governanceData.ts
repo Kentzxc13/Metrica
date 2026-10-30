@@ -363,5 +363,3 @@ export const INITIAL_BOARD_MEETINGS: BoardMeeting[] = [
         }
     }
 ];
-
-

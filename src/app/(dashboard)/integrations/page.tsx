@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useDashboard } from '@/context/DashboardContext';
-import { INITIAL_DATA_PIPELINES } from '@/data/pipelines';
+import { INITIAL_DATA_PIPELINES } from './pipelineData';
 import { DataPipeline } from '@/types/pipeline';
 import LiveStatusDot from '@/components/LiveStatusDot';
 import { PipelinesTableSkeleton, CurlQuickstartSkeleton } from '@/components/SkeletonShimmer';
